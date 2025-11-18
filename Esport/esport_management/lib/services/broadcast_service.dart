@@ -1,28 +1,33 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/broadcast_schedule.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class BroadcastService {
-  static const String _collection = 'broadcast_schedules';
-  final Db _db;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _scheduleCollection;
 
-  BroadcastService(this._db);
-
-  DbCollection get scheduleCollection => _db.collection(_collection);
+  BroadcastService() {
+    _scheduleCollection = _firestore.collection('broadcast_schedules');
+  }
 
   Future<void> addScheduleItem(BroadcastScheduleItem item) async {
-    await scheduleCollection.insert(item.toMap());
+    await _scheduleCollection.add(item.toMap());
   }
 
   Future<List<BroadcastScheduleItem>> getScheduleForTournament(String tournamentId) async {
-    final docs = await scheduleCollection.find(where.eq('tournamentId', tournamentId).sortBy('startTime')).toList();
-    return docs.map((doc) => BroadcastScheduleItem.fromMap(doc)).toList();
+    final snapshot = await _scheduleCollection
+        .where('tournamentId', isEqualTo: tournamentId)
+        .orderBy('startTime')
+        .get();
+    return snapshot.docs
+        .map((doc) => BroadcastScheduleItem.fromMap(doc.data() as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> updateScheduleItem(BroadcastScheduleItem item) async {
-    await scheduleCollection.updateOne(where.id(item.id), item.toMap());
+    await _scheduleCollection.doc(item.id.toHexString()).update(item.toMap());
   }
 
-  Future<void> deleteScheduleItem(ObjectId itemId) async {
-    await scheduleCollection.deleteOne(where.id(itemId));
+  Future<void> deleteScheduleItem(String itemId) async {
+    await _scheduleCollection.doc(itemId).delete();
   }
 }

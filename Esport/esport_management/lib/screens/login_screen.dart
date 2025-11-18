@@ -1,20 +1,16 @@
-import 'package:esport_mgm/screens/home_page.dart';
-import 'package:esport_mgm/screens/register_screen.dart'; // I will create this next
-import 'package:esport_mgm/services/auth_service.dart';
-import 'package:esport_mgm/services/db_exception.dart';
+import 'package:esport_mgm/screens/register_screen.dart';
+import 'package:esport_mgm/services/authentication_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
-  final VoidCallback onLoginSuccess;
-
-  const LoginScreen({super.key, required this.onLoginSuccess});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final AuthService _auth = AuthService();
   final _formKey = GlobalKey<FormState>();
 
   final _emailController = TextEditingController();
@@ -38,24 +34,16 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
+    final authService = context.read<AuthenticationService>();
+
     try {
-      final user = await _auth.login(
-        _emailController.text,
-        _passwordController.text,
+      final result = await authService.signIn(
+        email: _emailController.text,
+        password: _passwordController.text,
       );
-      if (user != null) {
-        widget.onLoginSuccess();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid email or password.')),
-          );
-        }
-      }
-    } on DbException catch (e) {
-      if (mounted) {
+      if (result != "Signed in" && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
+          SnackBar(content: Text(result ?? 'An unknown error occurred.')),
         );
       }
     } finally {
@@ -117,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => RegisterScreen(onRegisterSuccess: widget.onLoginSuccess),
+                        builder: (context) => const RegisterScreen(),
                       ),
                     );
                   },

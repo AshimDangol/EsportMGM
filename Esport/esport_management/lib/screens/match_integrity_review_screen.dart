@@ -1,5 +1,4 @@
 import 'package:esport_mgm/models/match_integrity_audit.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:esport_mgm/services/match_integrity_service.dart';
 import 'package:flutter/material.dart';
 
@@ -22,7 +21,7 @@ class _MatchIntegrityReviewScreenState extends State<MatchIntegrityReviewScreen>
   @override
   void initState() {
     super.initState();
-    _integrityService = MatchIntegrityService(DBService.instance.db);
+    _integrityService = MatchIntegrityService();
   }
 
   @override
@@ -77,7 +76,7 @@ class _MatchIntegrityReviewScreenState extends State<MatchIntegrityReviewScreen>
           key: _formKey,
           child: ListView(
             children: [
-              Text('Reviewing Match: ${widget.matchId}', style: Theme.of(context).textTheme.headline6),
+              Text('Reviewing Match: ${widget.matchId}', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 24),
               TextFormField(
                 controller: _notesController,

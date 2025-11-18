@@ -1,6 +1,5 @@
 import 'package:esport_mgm/models/revenue_agreement.dart';
 import 'package:esport_mgm/models/team.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:esport_mgm/services/finance_service.dart';
 import 'package:flutter/material.dart';
 
@@ -22,7 +21,7 @@ class _RevenueAgreementScreenState extends State<RevenueAgreementScreen> {
   @override
   void initState() {
     super.initState();
-    _financeService = FinanceService(DBService.instance.db);
+    _financeService = FinanceService();
     // Initialize controllers for each player
     for (final playerId in widget.team.players) {
       _playerControllers[playerId] = TextEditingController(text: '25.0'); // Default even split
@@ -54,7 +53,7 @@ class _RevenueAgreementScreenState extends State<RevenueAgreementScreen> {
     }
 
     final agreement = RevenueAgreement(
-      teamId: widget.team.id.toHexString(),
+      teamId: widget.team.id,
       organizationPercentage: _orgPercentage,
       playerPercentages: playerPercentages,
     );

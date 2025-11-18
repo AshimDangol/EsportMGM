@@ -17,12 +17,14 @@ class MatchIntegrityAudit {
   final ReviewAction actionTaken;
 
   MatchIntegrityAudit({
+    ObjectId? id,
     required this.matchId,
     required this.reviewerId,
     required this.notes,
     required this.actionTaken,
-  })  : id = ObjectId(),
-        timestamp = DateTime.now();
+    DateTime? timestamp,
+  })  : id = id ?? ObjectId(),
+        timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
         '_id': id,
@@ -35,13 +37,13 @@ class MatchIntegrityAudit {
 
   factory MatchIntegrityAudit.fromMap(Map<String, dynamic> map) {
     return MatchIntegrityAudit(
+      id: map['_id'] as ObjectId,
       matchId: map['matchId'] as String,
       reviewerId: map['reviewerId'] as String,
       notes: map['notes'] as String,
       actionTaken: ReviewAction.values
           .firstWhere((e) => e.toString() == map['actionTaken'], orElse: () => ReviewAction.noActionTaken),
-    )
-      ..id.id = map['_id'] as ObjectId
-      ..timestamp.toUtc(); // Simplified timestamp handling
+      timestamp: map['timestamp'] as DateTime,
+    );
   }
 }

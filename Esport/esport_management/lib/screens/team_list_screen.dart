@@ -1,6 +1,5 @@
 import 'package:esport_mgm/models/team.dart';
 import 'package:esport_mgm/screens/player_dashboard_screen.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:esport_mgm/services/team_service.dart';
 import 'package:flutter/material.dart';
 
@@ -18,7 +17,7 @@ class _TeamListScreenState extends State<TeamListScreen> {
   @override
   void initState() {
     super.initState();
-    _teamService = TeamService(DBService.instance.db);
+    _teamService = TeamService();
     _loadTeams();
   }
 

@@ -1,17 +1,17 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/revenue_agreement.dart';
 import 'package:esport_mgm/models/team.dart';
 import 'package:esport_mgm/models/tournament.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class FinanceService {
-  final Db _db;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _agreementsCollection;
+  late final CollectionReference _walletsCollection;
 
-  // In a real app, these would be separate collections for wallets
-  final Map<String, double> _wallets = {}; // Key: teamId or playerId
-
-  FinanceService(this._db);
-
-  DbCollection get agreementsCollection => _db.collection('revenue_agreements');
+  FinanceService() {
+    _agreementsCollection = _firestore.collection('revenue_agreements');
+    _walletsCollection = _firestore.collection('wallets');
+  }
 
   Future<void> distributePrizePool(Tournament tournament, List<Team> finalRankings) async {
     if (tournament.prizeDistribution.isEmpty) return;
@@ -30,15 +30,15 @@ class FinanceService {
             ? tournament.prizePool * (distributionRule.percentage / 100)
             : distributionRule.fixedAmount;
 
-        final agreementDoc = await agreementsCollection.findOne(where.eq('teamId', team.id.toHexString()));
+        final agreementDoc = await _agreementsCollection.doc(team.id).get();
 
-        if (agreementDoc != null) {
-          final agreement = RevenueAgreement.fromMap(agreementDoc);
+        if (agreementDoc.exists) {
+          final agreement = RevenueAgreement.fromMap(agreementDoc.data() as Map<String, dynamic>);
           await _splitWinnings(totalWinnings, team, agreement);
         } else {
           // If no agreement, give it all to the team's general wallet
-          _wallets.update(team.id.toHexString(), (v) => v + totalWinnings, ifAbsent: () => totalWinnings);
-          print('Team ${team.name} has no revenue agreement. Paid $$totalWinnings to team wallet.');
+          await _walletsCollection.doc(team.id).set({'balance': FieldValue.increment(totalWinnings)}, SetOptions(merge: true));
+          print('Team ${team.name} has no revenue agreement. Paid \$${totalWinnings} to team wallet.');
         }
       }
     }
@@ -48,8 +48,8 @@ class FinanceService {
   Future<void> _splitWinnings(double totalWinnings, Team team, RevenueAgreement agreement) async {
     // Organization's cut
     final orgCut = totalWinnings * (agreement.organizationPercentage / 100);
-    _wallets.update('org_${team.id.toHexString()}', (v) => v + orgCut, ifAbsent: () => orgCut);
-    print('Paid $$orgCut to organization for Team ${team.name}');
+    await _walletsCollection.doc('org_${team.id}').set({'balance': FieldValue.increment(orgCut)}, SetOptions(merge: true));
+    print('Paid \$${orgCut} to organization for Team ${team.name}');
 
     double playerPool = totalWinnings - orgCut;
 
@@ -59,20 +59,20 @@ class FinanceService {
       final percentage = entry.value;
       final playerCut = playerPool * (percentage / 100);
 
-      _wallets.update(playerId, (v) => v + playerCut, ifAbsent: () => playerCut);
-      print('Paid $$playerCut to player $playerId');
+      await _walletsCollection.doc(playerId).set({'balance': FieldValue.increment(playerCut)}, SetOptions(merge: true));
+      print('Paid \$${playerCut} to player $playerId');
     }
   }
 
-  double getWalletBalance(String walletId) {
-    return _wallets[walletId] ?? 0.0;
+  Future<double> getWalletBalance(String walletId) async {
+    final doc = await _walletsCollection.doc(walletId).get();
+    if (doc.exists) {
+      return (doc.data() as Map<String, dynamic>)['balance'] ?? 0.0;
+    }
+    return 0.0;
   }
 
   Future<void> saveAgreement(RevenueAgreement agreement) async {
-    await agreementsCollection.replaceOne(
-      where.eq('teamId', agreement.teamId),
-      agreement.toMap(),
-      upsert: true,
-    );
+    await _agreementsCollection.doc(agreement.teamId).set(agreement.toMap());
   }
 }

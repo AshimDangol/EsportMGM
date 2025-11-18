@@ -7,10 +7,11 @@ class RevenueAgreement {
   final Map<String, double> playerPercentages; // PlayerID -> Percentage
 
   RevenueAgreement({
+    ObjectId? id,
     required this.teamId,
     required this.organizationPercentage,
     required this.playerPercentages,
-  }) : id = ObjectId();
+  }) : id = id ?? ObjectId();
 
   Map<String, dynamic> toMap() => {
         '_id': id,
@@ -21,9 +22,10 @@ class RevenueAgreement {
 
   factory RevenueAgreement.fromMap(Map<String, dynamic> map) {
     return RevenueAgreement(
+      id: map['_id'] as ObjectId,
       teamId: map['teamId'] as String,
       organizationPercentage: (map['organizationPercentage'] as num).toDouble(),
       playerPercentages: (map['playerPercentages'] as Map).cast<String, double>(),
-    )..id.id = map['_id'] as ObjectId;
+    );
   }
 }

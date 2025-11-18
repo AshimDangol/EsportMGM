@@ -2,7 +2,6 @@ import 'package:esport_mgm/models/game_event.dart';
 import 'package:esport_mgm/models/match.dart';
 import 'package:esport_mgm/models/match_integrity_audit.dart';
 import 'package:esport_mgm/screens/match_integrity_review_screen.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:esport_mgm/services/game_event_service.dart';
 import 'package:esport_mgm/services/match_integrity_service.dart';
 import 'package:esport_mgm/services/ranking_service.dart';
@@ -30,8 +29,8 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> with SingleTick
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _integrityService = MatchIntegrityService(DBService.instance.db);
-    _eventService = GameEventService(DBService.instance.db);
+    _integrityService = MatchIntegrityService();
+    _eventService = GameEventService();
     _loadAudits();
     _loadEvents();
   }
@@ -218,8 +217,8 @@ class _ScoreEditorState extends State<ScoreEditor> {
     super.initState();
     _team1ScoreController = TextEditingController(text: widget.match.team1Score.toString());
     _team2ScoreController = TextEditingController(text: widget.match.team2Score.toString());
-    _tournamentService = TournamentService(DBService.instance.db);
-    _rankingService = RankingService(DBService.instance.db);
+    _tournamentService = TournamentService();
+    _rankingService = RankingService();
   }
 
   @override
@@ -239,7 +238,7 @@ class _ScoreEditorState extends State<ScoreEditor> {
       // First, update the match score in the tournament
       await _tournamentService.updateMatchScore(
         widget.match.id.toHexString(), // This seems incorrect, review tournament_service
-        widget.match.id,
+        widget.match.id.toHexString(),
         team1Score,
         team2Score,
       );
@@ -270,7 +269,7 @@ class _ScoreEditorState extends State<ScoreEditor> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('${widget.match.team1Id ?? 'TBD'} vs ${widget.match.team2Id ?? 'TBD'}',
-                style: Theme.of(context).textTheme.headline5),
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 24),
             TextFormField(
               controller: _team1ScoreController,

@@ -1,29 +1,29 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/team.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class TeamService {
-  static const String _collection = 'teams';
-  final Db _db;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _teamsCollection;
 
-  TeamService(this._db);
-
-  DbCollection get teamCollection => _db.collection(_collection);
+  TeamService() {
+    _teamsCollection = _firestore.collection('teams');
+  }
 
   Future<void> addTeam(Team team) async {
-    await teamCollection.insert(team.toMap());
+    await _teamsCollection.add(team.toMap());
   }
 
   Future<List<Team>> getTeamsForTournament(String tournamentId) async {
-    final teamDocs = await teamCollection.find(where.eq('tournamentId', tournamentId)).toList();
-    return teamDocs.map((doc) => Team.fromMap(doc)).toList();
+    final snapshot = await _teamsCollection.where('tournamentId', isEqualTo: tournamentId).get();
+    return snapshot.docs.map((doc) => Team.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
   }
 
   Future<List<Team>> getAllTeams({Region? region}) async {
-    final selector = region == null || region == Region.global
-        ? where.sortBy('name')
-        : where.eq('region', region.toString()).sortBy('name');
-
-    final teamDocs = await teamCollection.find(selector).toList();
-    return teamDocs.map((doc) => Team.fromMap(doc)).toList();
+    Query query = _teamsCollection;
+    if (region != null && region != Region.global) {
+      query = query.where('region', isEqualTo: region.toString());
+    }
+    final snapshot = await query.orderBy('name').get();
+    return snapshot.docs.map((doc) => Team.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
   }
 }

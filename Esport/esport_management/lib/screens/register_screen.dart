@@ -1,17 +1,16 @@
-import 'package:esport_mgm/services/auth_service.dart';
-import 'package:esport_mgm/services/db_exception.dart';
+import 'package:esport_mgm/services/authentication_service.dart';
+import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class RegisterScreen extends StatefulWidget {
-  final VoidCallback onRegisterSuccess;
-  const RegisterScreen({super.key, required this.onRegisterSuccess});
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final AuthService _auth = AuthService();
   final _formKey = GlobalKey<FormState>();
 
   final _emailController = TextEditingController();
@@ -37,24 +36,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _isLoading = true;
     });
 
+    final authService = context.read<AuthenticationService>();
+    final firestoreService = context.read<FirestoreService>();
+
     try {
-      final user = await _auth.register(
-        _emailController.text,
-        _passwordController.text,
+      final result = await authService.signUp(
+        email: _emailController.text,
+        password: _passwordController.text,
       );
-      if (user != null) {
-        widget.onRegisterSuccess();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Registration failed.')),
-          );
-        }
-      }
-    } on DbException catch (e) {
-      if (mounted) {
+      if (result == "Signed up") {
+        await firestoreService.createUser(authService.currentUser!.uid, _emailController.text);
+        if (mounted) Navigator.of(context).pop();
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
+          SnackBar(content: Text(result ?? 'An unknown error occurred.')),
         );
       }
     } finally {

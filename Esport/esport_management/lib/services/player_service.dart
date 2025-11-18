@@ -1,31 +1,43 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/player.dart';
-import 'package:esport_mgm/services/db_exception.dart';
-import 'package:esport_mgm/services/mongo_service.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class PlayerService {
-  final _db = MongoService().db;
-  DbCollection get _collection {
-    final collection = _db?.collection('players');
-    if (collection == null) {
-      throw DbException('Database not connected or collection not found.');
-    }
-    return collection;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _collection;
+
+  PlayerService() {
+    _collection = _firestore.collection('players');
   }
 
-  // ... (create, get, update, delete methods)
+  Future<void> createPlayer(Player player) async {
+    await _collection.add(player.toMap());
+  }
+
+  Future<void> updatePlayer(Player player) async {
+    await _collection.doc(player.id).update(player.toMap());
+  }
+
+  Future<void> deletePlayer(String playerId) async {
+    await _collection.doc(playerId).delete();
+  }
 
   Future<Player?> getPlayerByUserId(String userId) async {
-    try {
-      final playerMap = await _collection.findOne(where.eq('userId', userId));
-      if (playerMap != null) {
-        return Player.fromMap(playerMap);
-      }
-      return null;
-    } catch (e) {
-      throw DbException('Error fetching player by user ID: $e');
+    final snapshot = await _collection.where('userId', isEqualTo: userId).get();
+    if (snapshot.docs.isNotEmpty) {
+      final doc = snapshot.docs.first;
+      return Player.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }
+    return null;
   }
 
-  // ... (getPlayersByIds method)
+  Future<List<Player>> getPlayers() async {
+    final snapshot = await _collection.get();
+    return snapshot.docs.map((doc) => Player.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+  }
+
+  Stream<List<Player>> getPlayersStream() {
+    return _collection.snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => Player.fromSnapshot(doc)).toList();
+    });
+  }
 }

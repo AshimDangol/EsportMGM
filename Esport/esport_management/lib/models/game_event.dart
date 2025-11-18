@@ -14,12 +14,14 @@ class GameEvent {
   final Map<String, dynamic> eventData; // Flexible data like { "weapon": "AK-47", "headshot": true }
 
   GameEvent({
+    ObjectId? id,
     required this.matchId,
     required this.playerId,
     required this.eventType,
     required this.eventData,
-  })  : id = ObjectId(),
-        timestamp = DateTime.now();
+    DateTime? timestamp,
+  })  : id = id ?? ObjectId(),
+        timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
         '_id': id,
@@ -32,13 +34,13 @@ class GameEvent {
 
   factory GameEvent.fromMap(Map<String, dynamic> map) {
     return GameEvent(
+      id: map['_id'] as ObjectId,
       matchId: map['matchId'] as String,
       playerId: map['playerId'] as String,
       eventType: GameEventType.values
           .firstWhere((e) => e.toString() == map['eventType'], orElse: () => GameEventType.kill),
       eventData: map['eventData'] as Map<String, dynamic>,
-    )
-      ..id.id = map['_id'] as ObjectId
-      ..timestamp.toUtc(); // Simplified timestamp handling
+      timestamp: map['timestamp'] as DateTime,
+    );
   }
 }

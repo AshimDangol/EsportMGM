@@ -1,20 +1,20 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/game_event.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class GameEventService {
-  static const String _collection = 'game_events';
-  final Db _db;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _eventsCollection;
 
-  GameEventService(this._db);
-
-  DbCollection get eventCollection => _db.collection(_collection);
+  GameEventService() {
+    _eventsCollection = _firestore.collection('game_events');
+  }
 
   Future<void> recordEvent(GameEvent event) async {
-    await eventCollection.insert(event.toMap());
+    await _eventsCollection.add(event.toMap());
   }
 
   Future<List<GameEvent>> getEventsForMatch(String matchId) async {
-    final docs = await eventCollection.find(where.eq('matchId', matchId).sortBy('timestamp')).toList();
-    return docs.map((doc) => GameEvent.fromMap(doc)).toList();
+    final snapshot = await _eventsCollection.where('matchId', isEqualTo: matchId).orderBy('timestamp').get();
+    return snapshot.docs.map((doc) => GameEvent.fromMap(doc.data() as Map<String, dynamic>)).toList();
   }
 }

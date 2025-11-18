@@ -1,6 +1,5 @@
 import 'package:esport_mgm/models/player_stats.dart';
 import 'package:esport_mgm/services/analytics_service.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:flutter/material.dart';
 
 class PlayerDashboardScreen extends StatefulWidget {
@@ -19,7 +18,7 @@ class _PlayerDashboardScreenState extends State<PlayerDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _analyticsService = AnalyticsService(DBService.instance.db);
+    _analyticsService = AnalyticsService();
     _loadStats();
   }
 

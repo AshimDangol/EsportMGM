@@ -1,19 +1,51 @@
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:esport_mgm/models/match.dart';
 import 'package:esport_mgm/models/tournament.dart';
 import 'package:esport_mgm/services/db_exception.dart';
-import 'package:esport_mgm/services/mongo_service.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class TournamentService {
-  final _db = MongoService().db;
-  DbCollection get _collection {
-    // ... (collection getter)
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _collection;
+
+  TournamentService() {
+    _collection = _firestore.collection('tournaments');
   }
 
-  // ... (create, get, update, delete tournament methods)
+  Future<List<Tournament>> getAllTournaments() async {
+    final snapshot = await _collection.get();
+    return snapshot.docs
+        .map((doc) => Tournament.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+        .toList();
+  }
+
+  Stream<List<Tournament>> snapshots() {
+    return _collection.snapshots().map((snapshot) => snapshot.docs
+        .map((doc) => Tournament.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+        .toList());
+  }
+
+  Future<void> createTournament(Tournament tournament) async {
+    await _collection.add(tournament.toMap());
+  }
+
+  Future<Tournament?> getTournamentById(String tournamentId) async {
+    final doc = await _collection.doc(tournamentId).get();
+    if (doc.exists) {
+      return Tournament.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    }
+    return null;
+  }
+
+  Future<void> updateTournament(Tournament tournament) async {
+    await _collection.doc(tournament.id).update(tournament.toMap());
+  }
+
+  Future<void> deleteTournament(String tournamentId) async {
+    await _collection.doc(tournamentId).delete();
+  }
 
   Future<void> generateBracket(String tournamentId) async {
     final tournament = await getTournamentById(tournamentId);
@@ -22,7 +54,7 @@ class TournamentService {
       throw DbException('Not enough checked-in teams.');
     }
 
-    // ... (team shuffling/seeding logic)
+    final teams = tournament.checkedInTeamIds..shuffle();
 
     final matches = _generateSingleElimination(teams);
     final updatedTournament = tournament.copyWith(matches: matches);
@@ -56,11 +88,11 @@ class TournamentService {
     return matches;
   }
 
-  Future<void> updateMatchScore(String tournamentId, ObjectId matchId, int team1Score, int team2Score) async {
+  Future<void> updateMatchScore(String tournamentId, String matchId, int team1Score, int team2Score) async {
     final tournament = await getTournamentById(tournamentId);
     if (tournament == null) throw DbException('Tournament not found.');
 
-    final matchIndex = tournament.matches.indexWhere((m) => m.id == matchId);
+    final matchIndex = tournament.matches.indexWhere((m) => m.id.toHexString() == matchId);
     if (matchIndex == -1) throw DbException('Match not found.');
 
     final match = tournament.matches[matchIndex];
@@ -94,19 +126,20 @@ class TournamentService {
     final int currentRound = completedMatch.roundNumber;
     final int nextRound = currentRound + 1;
 
-    // Find the match in the next round that this winner feeds into
-    final int matchIndexInCurrentRound = matches
-        .where((m) => m.roundNumber == currentRound)
-        .toList()
-        .indexWhere((m) => m.matchNumber == completedMatch.matchNumber);
+    final currentRoundMatches = matches.where((m) => m.roundNumber == currentRound).toList();
+    final matchIndexInCurrentRound = currentRoundMatches.indexWhere((m) => m.matchNumber == completedMatch.matchNumber);
 
-    final int nextMatchIndexInNextRound = matchIndexInCurrentRound ~/ 2;
+    if (matchIndexInCurrentRound == -1) return;
 
-    final nextMatch = matches
-        .where((m) => m.roundNumber == nextRound)
-        .toList()[nextMatchIndexInNextRound];
+    final nextMatchIndexInNextRound = matchIndexInCurrentRound ~/ 2;
 
+    final nextRoundMatches = matches.where((m) => m.roundNumber == nextRound).toList();
+    if (nextMatchIndexInNextRound >= nextRoundMatches.length) return;
+
+    final nextMatch = nextRoundMatches[nextMatchIndexInNextRound];
     final nextMatchOverallIndex = matches.indexWhere((m) => m.id == nextMatch.id);
+
+    if (nextMatchOverallIndex == -1) return;
 
     // Place the winner in the appropriate slot (team1 or team2)
     if (matchIndexInCurrentRound % 2 == 0) {
@@ -115,6 +148,4 @@ class TournamentService {
       matches[nextMatchOverallIndex] = nextMatch.copyWith(team2Id: completedMatch.winnerId);
     }
   }
-
-  // ... (other service methods)
 }

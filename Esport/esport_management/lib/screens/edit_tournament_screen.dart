@@ -8,7 +8,6 @@ import 'package:esport_mgm/screens/match_details_screen.dart';
 import 'package:esport_mgm/screens/revenue_agreement_screen.dart';
 import 'package:esport_mgm/screens/tournament_registration_screen.dart';
 import 'package:esport_mgm/services/broadcast_service.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:esport_mgm/services/finance_service.dart';
 import 'package:esport_mgm/services/team_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
@@ -28,7 +27,6 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> with Single
   bool get isEditing => widget.tournament != null;
   Tournament? _currentTournament;
   late TeamService _teamService;
-  late FinanceService _financeService;
   late BroadcastService _broadcastService;
   late TabController _tabController;
   Future<List<Team>>? _teamsFuture;
@@ -38,9 +36,8 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> with Single
   void initState() {
     super.initState();
     _currentTournament = widget.tournament;
-    _teamService = TeamService(DBService.instance.db);
-    _financeService = FinanceService(DBService.instance.db);
-    _broadcastService = BroadcastService(DBService.instance.db);
+    _teamService = TeamService();
+    _broadcastService = BroadcastService();
     _tabController = TabController(length: 4, vsync: this);
 
     if (isEditing) {
@@ -49,15 +46,15 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> with Single
     }
   }
 
-  void _loadTeams() {
+  Future<void> _loadTeams() async {
     setState(() {
-      _teamsFuture = _teamService.getTeamsForTournament(_currentTournament!.id.toHexString());
+      _teamsFuture = _teamService.getTeamsForTournament(_currentTournament!.id);
     });
   }
 
-  void _loadSchedule() {
+  Future<void> _loadSchedule() async {
     setState(() {
-      _scheduleFuture = _broadcastService.getScheduleForTournament(_currentTournament!.id.toHexString());
+      _scheduleFuture = _broadcastService.getScheduleForTournament(_currentTournament!.id);
     });
   }
 
@@ -157,18 +154,17 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> with Single
               final title = titleController.text;
               if (title.isEmpty) return;
 
-              final newItem = BroadcastScheduleItem(
-                tournamentId: _currentTournament!.id.toHexString(),
-                title: title,
-                startTime: DateTime.now(), // Placeholder
-                endTime: DateTime.now().add(const Duration(hours: 1)), // Placeholder
-              );
-
               if (existingItem == null) {
+                final newItem = BroadcastScheduleItem(
+                  tournamentId: _currentTournament!.id,
+                  title: title,
+                  startTime: DateTime.now(), // Placeholder
+                  endTime: DateTime.now().add(const Duration(hours: 1)), // Placeholder
+                );
                 await _broadcastService.addScheduleItem(newItem);
               } else {
-                // This is a simplified update. A real implementation would copy properties.
-                await _broadcastService.updateScheduleItem(newItem);
+                final updatedItem = existingItem.copyWith(title: title);
+                await _broadcastService.updateScheduleItem(updatedItem);
               }
               Navigator.of(context).pop();
               _loadSchedule();
@@ -179,10 +175,23 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> with Single
     );
   }
 
-  Widget _buildRegisteredTeamsView() { /* ... */ }
-  Widget _buildCreateView() { /* ... */ }
-  Widget _buildFinanceView() { /* ... */ }
+  Widget _buildRegisteredTeamsView() {
+    return const Center(child: Text('Registered Teams'));
+  }
+
+  Widget _buildCreateView() {
+    return const Center(child: Text('Create Tournament'));
+  }
+
+  Widget _buildFinanceView() {
+    return const Center(child: Text('Finance'));
+  }
+
   Future<void> _showPrizeDistributionDialog() async { /* ... */ }
-  Widget _buildBracketView() { /* ... */ }
+
+  Widget _buildBracketView() {
+    return const Center(child: Text('Bracket'));
+  }
+
   void _navigateToMatchDetails(Match match) { /* ... */ }
 }

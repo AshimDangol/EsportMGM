@@ -1,7 +1,9 @@
 import 'package:esport_mgm/models/player.dart';
+import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/edit_player_screen.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class PlayerListScreen extends StatefulWidget {
   const PlayerListScreen({super.key});
@@ -12,38 +14,25 @@ class PlayerListScreen extends StatefulWidget {
 
 class _PlayerListScreenState extends State<PlayerListScreen> {
   final PlayerService _playerService = PlayerService();
-  late Future<List<Player>> _playersFuture;
 
-  @override
-  void initState() {
-    super.initState();
-    _playersFuture = _playerService.getPlayers();
-  }
-
-  void _refreshPlayers() {
-    setState(() {
-      _playersFuture = _playerService.getPlayers();
-    });
-  }
-
-  void _navigateToEditScreen([Player? player]) async {
+  void _navigateToEditScreen(User user, [Player? player]) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EditPlayerScreen(player: player),
+        builder: (context) => EditPlayerScreen(user: user, player: player),
       ),
     );
-    _refreshPlayers(); // Refresh the list after returning
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<User>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Players'),
       ),
-      body: FutureBuilder<List<Player>>(
-        future: _playersFuture,
+      body: StreamBuilder<List<Player>>(
+        stream: _playerService.getPlayersStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -61,14 +50,14 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
               return ListTile(
                 title: Text(player.gamerTag),
                 subtitle: Text(player.realName ?? 'No real name'),
-                onTap: () => _navigateToEditScreen(player),
+                onTap: () => _navigateToEditScreen(user, player),
               );
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToEditScreen(),
+        onPressed: () => _navigateToEditScreen(user),
         child: const Icon(Icons.add),
       ),
     );

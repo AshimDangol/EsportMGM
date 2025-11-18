@@ -1,6 +1,5 @@
 import 'package:esport_mgm/models/team.dart';
 import 'package:esport_mgm/models/tournament.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:esport_mgm/services/team_service.dart';
 import 'package:flutter/material.dart';
 
@@ -27,7 +26,7 @@ class _TournamentRegistrationScreenState
   void initState() {
     super.initState();
     // In a real app, you'd get this from a dependency injector
-    _teamService = TeamService(DBService.instance.db);
+    _teamService = TeamService();
   }
 
   @override
@@ -42,12 +41,14 @@ class _TournamentRegistrationScreenState
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final team = Team(
+        id: '', // Firestore will generate this
         name: _teamNameController.text,
+        region: Region.global, // Default region
+        eloRating: 1200, // Default ELO
         players: [
           _player1NameController.text,
           _player2NameController.text,
         ],
-        tournamentId: widget.tournament.id.toHexString(),
       );
 
       try {

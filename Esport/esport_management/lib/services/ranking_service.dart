@@ -1,15 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:esport_mgm/models/competitive_tier.dart';
 import 'package:esport_mgm/models/match.dart';
 import 'package:esport_mgm/models/team.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 import 'dart:math';
 
 class RankingService {
-  static const String _teamCollection = 'teams';
-  final Db _db;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late final CollectionReference _teamCollection;
 
-  RankingService(this._db);
-
-  DbCollection get teamCollection => _db.collection(_teamCollection);
+  RankingService() {
+    _teamCollection = _firestore.collection('teams');
+  }
 
   static const int _pointsPerWin = 10;
   static const Map<int, CompetitiveTier> _tierThresholds = {
@@ -25,13 +26,13 @@ class RankingService {
   Future<void> updatePostMatchStats(Match match) async {
     if (match.winnerId == null) return; // No winner, no updates
 
-    final team1Doc = await teamCollection.findOne(where.id(ObjectId.parse(match.team1Id!)));
-    final team2Doc = await teamCollection.findOne(where.id(ObjectId.parse(match.team2Id!)));
+    final team1Doc = await _teamCollection.doc(match.team1Id!).get();
+    final team2Doc = await _teamCollection.doc(match.team2Id!).get();
 
-    if (team1Doc == null || team2Doc == null) return;
+    if (!team1Doc.exists || !team2Doc.exists) return;
 
-    final team1 = Team.fromMap(team1Doc);
-    final team2 = Team.fromMap(team2Doc);
+    final team1 = Team.fromMap(team1Doc.data() as Map<String, dynamic>, team1Doc.id);
+    final team2 = Team.fromMap(team2Doc.data() as Map<String, dynamic>, team2Doc.id);
 
     // 1. Update ELO
     await _updateElo(team1, team2, match.winnerId!);
@@ -48,31 +49,29 @@ class RankingService {
     final expectedScore1 = 1 / (1 + pow(10, (elo2 - elo1) / 400));
     final expectedScore2 = 1 / (1 + pow(10, (elo1 - elo2) / 400));
 
-    final actualScore1 = winnerId == team1.id.toHexString() ? 1.0 : 0.0;
-    final actualScore2 = winnerId == team2.id.toHexString() ? 1.0 : 0.0;
+    final actualScore1 = winnerId == team1.id ? 1.0 : 0.0;
+    final actualScore2 = winnerId == team2.id ? 1.0 : 0.0;
 
     final newElo1 = elo1 + kFactor * (actualScore1 - expectedScore1);
     final newElo2 = elo2 + kFactor * (actualScore2 - expectedScore2);
 
-    await teamCollection.updateOne(where.id(team1.id), modify.set('elo_rating', newElo1.round()));
-    await teamCollection.updateOne(where.id(team2.id), modify.set('elo_rating', newElo2.round()));
+    await _teamCollection.doc(team1.id).update({'elo_rating': newElo1.round()});
+    await _teamCollection.doc(team2.id).update({'elo_rating': newElo2.round()});
   }
 
   Future<void> _updateSeasonalPoints(String winnerId) async {
-    final winnerDoc = await teamCollection.findOne(where.id(ObjectId.parse(winnerId)));
-    if (winnerDoc == null) return;
+    final winnerDoc = await _teamCollection.doc(winnerId).get();
+    if (!winnerDoc.exists) return;
 
-    final currentPoints = (winnerDoc['seasonal_points'] as num?)?.toInt() ?? 0;
+    final currentPoints = (winnerDoc.data() as Map<String, dynamic>)['seasonal_points'] ?? 0;
     final newPoints = currentPoints + _pointsPerWin;
 
     final newTier = _getTierForPoints(newPoints);
 
-    await teamCollection.updateOne(
-      where.id(ObjectId.parse(winnerId)),
-      modify
-          .set('seasonal_points', newPoints)
-          .set('tier', newTier.toString()),
-    );
+    await _teamCollection.doc(winnerId).update({
+      'seasonal_points': newPoints,
+      'tier': newTier.toString(),
+    });
   }
 
   CompetitiveTier _getTierForPoints(int points) {

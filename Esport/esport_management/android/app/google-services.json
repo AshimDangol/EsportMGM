@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "842502464869",
-    "project_id": "esport-235cf",
-    "storage_bucket": "esport-235cf.firebasestorage.app"
+    "project_number": "717940776516",
+    "project_id": "esportmanagementapp",
+    "storage_bucket": "esportmanagementapp.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:842502464869:android:01498628a7223ea3b3ed8c",
+        "mobilesdk_app_id": "1:717940776516:android:aee3a76649ff12fce72611",
         "android_client_info": {
           "package_name": "com.example.esport_management"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBdiTIxsw9eet3MWOdScBoBlEfoFwf-AKc"
+          "current_key": "AIzaSyAYp4Ac3G1OTaHuBkHTasPHf3HJTNvu68A"
         }
       ],
       "services": {

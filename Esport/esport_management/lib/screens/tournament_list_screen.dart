@@ -23,12 +23,12 @@ class _TournamentListScreenState extends State<TournamentListScreen> {
   @override
   void initState() {
     super.initState();
-    _tournamentsFuture = _tournamentService.getTournaments();
+    _tournamentsFuture = _tournamentService.getAllTournaments();
   }
 
   void _refreshTournaments() {
     setState(() {
-      _tournamentsFuture = _tournamentService.getTournaments();
+      _tournamentsFuture = _tournamentService.getAllTournaments();
     });
   }
 

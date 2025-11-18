@@ -1,6 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/match.dart';
 import 'package:flutter/foundation.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 enum TournamentFormat {
   singleElimination,
@@ -40,7 +40,7 @@ class PrizeDistribution {
 
 @immutable
 class Tournament {
-  final ObjectId id;
+  final String id;
   final String name;
   final String game;
   final DateTime startDate;
@@ -57,6 +57,7 @@ class Tournament {
   final Map<String, int> seeding;
 
   Tournament({
+    this.id = '',
     required this.name,
     required this.game,
     required this.startDate,
@@ -71,14 +72,15 @@ class Tournament {
     this.rules = '',
     this.matches = const [],
     this.seeding = const {},
-  }) : id = ObjectId();
+  });
 
-  factory Tournament.fromMap(Map<String, dynamic> map) {
+  factory Tournament.fromMap(Map<String, dynamic> map, String documentId) {
     return Tournament(
+      id: documentId,
       name: map['name'] as String? ?? '',
       game: map['game'] as String? ?? '',
-      startDate: map['startDate'] as DateTime,
-      endDate: map['endDate'] as DateTime?,
+      startDate: (map['startDate'] as Timestamp).toDate(),
+      endDate: (map['endDate'] as Timestamp?)?.toDate(),
       venue: map['venue'] as String?,
       description: map['description'] as String? ?? '',
       prizePool: (map['prizePool'] as num? ?? 0.0).toDouble(),
@@ -94,12 +96,11 @@ class Tournament {
       rules: map['rules'] as String? ?? '',
       matches: (map['matches'] as List? ?? []).map((m) => Match.fromMap(m)).toList(),
       seeding: Map<String, int>.from(map['seeding'] ?? {}),
-    )..id.id = map['_id'] as ObjectId;
+    );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      '_id': id,
       'name': name,
       'game': game,
       'startDate': startDate,
@@ -118,7 +119,7 @@ class Tournament {
   }
 
   Tournament copyWith({
-    ObjectId? id,
+    String? id,
     String? name,
     String? game,
     DateTime? startDate,
@@ -135,6 +136,7 @@ class Tournament {
     Map<String, int>? seeding,
   }) {
     return Tournament(
+      id: id ?? this.id,
       name: name ?? this.name,
       game: game ?? this.game,
       startDate: startDate ?? this.startDate,
@@ -149,6 +151,6 @@ class Tournament {
       rules: rules ?? this.rules,
       matches: matches ?? this.matches,
       seeding: seeding ?? this.seeding,
-    )..id.id = id ?? this.id;
+    );
   }
 }
