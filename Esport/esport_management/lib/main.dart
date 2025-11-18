@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/user.dart' as model;
-import 'package:esport_mgm/screens/home_page.dart';
+import 'package:esport_mgm/screens/main_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:esport_mgm/services/authentication_service.dart';
@@ -9,22 +9,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:esport_mgm/firebase_options.dart';
 import 'package:esport_mgm/screens/auth/login_screen.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (Firebase.apps.isEmpty) {
+
+  // This try-catch block gracefully handles the race condition where the native
+  // side initializes Firebase before the Dart side has a chance.
+  try {
     await Firebase.initializeApp(
-      name: 'esport-management-app',
       options: DefaultFirebaseOptions.currentPlatform,
     );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') {
+      // If the error is not 'duplicate-app', rethrow it.
+      rethrow;
+    }
+    // If the error is 'duplicate-app', it means Firebase is already initialized
+    // natively, so we can safely ignore the error and proceed.
   }
-  await FirebaseAppCheck.instance.activate(
-    webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
-    androidProvider: AndroidProvider.debug,
-    appleProvider: AppleProvider.appAttest,
-  );
-  runApp(MyApp());
+
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -32,21 +36,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final FirebaseApp app = Firebase.app('esport-management-app');
-    final FirebaseAuth auth = FirebaseAuth.instanceFor(app: app);
-    final FirebaseFirestore firestore = FirebaseFirestore.instanceFor(app: app);
-
     return MultiProvider(
       providers: [
         Provider<AuthenticationService>(
-          create: (_) => AuthenticationService(auth),
+          create: (_) => AuthenticationService(FirebaseAuth.instance),
         ),
         StreamProvider(
-          create: (context) => context.read<AuthenticationService>().authStateChanges,
+          create: (context) =>
+              context.read<AuthenticationService>().authStateChanges,
           initialData: null,
         ),
         Provider<FirestoreService>(
-          create: (_) => FirestoreService(firestore: firestore),
+          create: (_) => FirestoreService(firestore: FirebaseFirestore.instance),
         ),
       ],
       child: MaterialApp(
@@ -72,9 +73,9 @@ class AuthenticationWrapper extends StatelessWidget {
         future: context.read<FirestoreService>().getUser(firebaseUser.uid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            if (snapshot.hasData) {
-              final user = model.User.fromMap(snapshot.data!.data() as Map<String, dynamic>);
-              return HomePage(user: user);
+            if (snapshot.hasData && snapshot.data!.exists) {
+              final user = model.User.fromMap(snapshot.data!.id, snapshot.data!.data() as Map<String, dynamic>);
+              return MainScreen(user: user);
             } else {
               return const LoginScreen();
             }

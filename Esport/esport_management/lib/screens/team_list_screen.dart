@@ -1,10 +1,12 @@
 import 'package:esport_mgm/models/team.dart';
+import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/player_dashboard_screen.dart';
 import 'package:esport_mgm/services/team_service.dart';
 import 'package:flutter/material.dart';
 
 class TeamListScreen extends StatefulWidget {
-  const TeamListScreen({super.key});
+  final User user;
+  const TeamListScreen({super.key, required this.user});
 
   @override
   State<TeamListScreen> createState() => _TeamListScreenState();

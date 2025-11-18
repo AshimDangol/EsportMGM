@@ -44,13 +44,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text,
         password: _passwordController.text,
       );
-      if (result == "Signed up") {
+      if (result == "Signed up" && authService.currentUser != null) {
         await firestoreService.createUser(authService.currentUser!.uid, _emailController.text);
-        if (mounted) Navigator.of(context).pop();
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result ?? 'An unknown error occurred.')),
-        );
+        if (mounted) {
+          // Pop the screen only after the user document is created.
+          Navigator.of(context).pop();
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result ?? 'An unknown error occurred.')),
+          );
+        }
       }
     } finally {
       if (mounted) {

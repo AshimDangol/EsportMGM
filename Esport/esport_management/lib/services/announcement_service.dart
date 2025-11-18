@@ -1,21 +1,27 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/announcement.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class AnnouncementService {
-  static const String _collection = 'announcements';
-  final Db _db;
+  final FirebaseFirestore _firestore;
 
-  AnnouncementService(this._db);
+  AnnouncementService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  DbCollection get announcementCollection => _db.collection(_collection);
-
-  Future<void> createAnnouncement(Announcement announcement) async {
-    await announcementCollection.insert(announcement.toMap());
+  // Stream of announcements, ordered by the most recent
+  Stream<List<Announcement>> getAnnouncementsStream() {
+    return _firestore
+        .collection('announcements')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return Announcement.fromMap(doc.id, doc.data());
+      }).toList();
+    });
   }
 
-  Future<List<Announcement>> getAnnouncements() async {
-    // Sort by newest first
-    final docs = await announcementCollection.find(where.sortBy('timestamp', descending: true)).toList();
-    return docs.map((doc) => Announcement.fromMap(doc)).toList();
+  // Add a new announcement
+  Future<void> addAnnouncement(Announcement announcement) {
+    return _firestore.collection('announcements').add(announcement.toMap());
   }
 }

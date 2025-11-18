@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 enum UserRole {
   admin,
@@ -17,7 +16,6 @@ class User {
   final String id;
   final String email;
   final UserRole role;
-  // Password hash should be stored, but the model only needs to care about the user data
 
   const User({
     required this.id,
@@ -25,12 +23,13 @@ class User {
     this.role = UserRole.spectator,
   });
 
-  factory User.fromMap(Map<String, dynamic> map) {
+  // Updated factory to work with Firestore
+  factory User.fromMap(String id, Map<String, dynamic> map) {
     return User(
-      id: (map['_id'] as ObjectId).toHexString(),
+      id: id, // Use the document ID passed from Firestore
       email: map['email'] as String? ?? '',
       role: UserRole.values.firstWhere(
-        (e) => e.toString() == map['role'],
+        (e) => e.toString() == "UserRole.${map['role']}", // Correctly match enum string
         orElse: () => UserRole.spectator,
       ),
     );
@@ -39,8 +38,7 @@ class User {
   Map<String, dynamic> toMap() {
     return {
       'email': email,
-      'role': role.toString(),
-      // Never store plain text password in the database
+      'role': role.name, // Use .name for storing the enum value
     };
   }
 }

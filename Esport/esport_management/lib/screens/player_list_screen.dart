@@ -3,10 +3,10 @@ import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/edit_player_screen.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 class PlayerListScreen extends StatefulWidget {
-  const PlayerListScreen({super.key});
+  final User user;
+  const PlayerListScreen({super.key, required this.user});
 
   @override
   State<PlayerListScreen> createState() => _PlayerListScreenState();
@@ -15,18 +15,17 @@ class PlayerListScreen extends StatefulWidget {
 class _PlayerListScreenState extends State<PlayerListScreen> {
   final PlayerService _playerService = PlayerService();
 
-  void _navigateToEditScreen(User user, [Player? player]) async {
+  void _navigateToEditScreen([Player? player]) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EditPlayerScreen(user: user, player: player),
+        builder: (context) => EditPlayerScreen(user: widget.user, player: player),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<User>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Players'),
@@ -50,14 +49,14 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
               return ListTile(
                 title: Text(player.gamerTag),
                 subtitle: Text(player.realName ?? 'No real name'),
-                onTap: () => _navigateToEditScreen(user, player),
+                onTap: () => _navigateToEditScreen(player),
               );
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToEditScreen(user),
+        onPressed: () => _navigateToEditScreen(),
         child: const Icon(Icons.add),
       ),
     );

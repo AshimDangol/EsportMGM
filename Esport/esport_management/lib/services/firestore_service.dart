@@ -8,7 +8,7 @@ class FirestoreService {
   Future<void> createUser(String uid, String email) async {
     return _firestore.collection('users').doc(uid).set({
       'email': email,
-      'role': 'spectator',
+      'role': 'spectator', // Storing the role as a simple string
     });
   }
 

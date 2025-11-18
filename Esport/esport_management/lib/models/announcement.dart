@@ -1,34 +1,34 @@
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
+@immutable
 class Announcement {
-  final ObjectId id;
+  final String id;
   final String title;
   final String content;
-  final DateTime timestamp;
-  final String authorId; // ID of the admin who posted it
+  final Timestamp timestamp;
 
-  Announcement({
+  const Announcement({
+    required this.id,
     required this.title,
     required this.content,
-    required this.authorId,
-  })  : id = ObjectId(),
-        timestamp = DateTime.now();
+    required this.timestamp,
+  });
 
-  Map<String, dynamic> toMap() => {
-        '_id': id,
-        'title': title,
-        'content': content,
-        'timestamp': timestamp,
-        'authorId': authorId,
-      };
-
-  factory Announcement.fromMap(Map<String, dynamic> map) {
+  factory Announcement.fromMap(String id, Map<String, dynamic> map) {
     return Announcement(
-      title: map['title'] as String,
-      content: map['content'] as String,
-      authorId: map['authorId'] as String,
-    )
-      ..id.id = map['_id'] as ObjectId
-      ..timestamp.toUtc(); // Simplified timestamp handling
+      id: id,
+      title: map['title'] as String? ?? '',
+      content: map['content'] as String? ?? '',
+      timestamp: map['timestamp'] as Timestamp? ?? Timestamp.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'content': content,
+      'timestamp': timestamp,
+    };
   }
 }

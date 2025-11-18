@@ -1,4 +1,5 @@
 import 'package:esport_mgm/models/user.dart';
+import 'package:esport_mgm/screens/announcements_screen.dart';
 import 'package:esport_mgm/screens/player_list_screen.dart';
 import 'package:esport_mgm/screens/team_list_screen.dart';
 import 'package:esport_mgm/screens/tournament_list_screen.dart';
@@ -26,11 +27,62 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: ListView(
           children: <Widget>[
-            // ... (existing buttons)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.rss_feed, color: Colors.purple),
+                title: const Text('Feed'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => AnnouncementsScreen(user: user)),
+                  );
+                },
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.emoji_events, color: Colors.blueAccent),
+                title: const Text('Tournaments'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => TournamentListScreen(user: user)),
+                  );
+                },
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.group, color: Colors.green),
+                title: const Text('Teams'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => TeamListScreen(user: user)),
+                  );
+                },
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.person_search, color: Colors.orange),
+                title: const Text('Players'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => PlayerListScreen(user: user)),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
