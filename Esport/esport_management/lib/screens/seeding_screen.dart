@@ -1,12 +1,11 @@
-import 'package:esport_mgm/models/team.dart';
+import 'package:esport_mgm/models/clan.dart';
 import 'package:esport_mgm/models/tournament.dart';
-import 'package:esport_mgm/services/team_service.dart';
+import 'package:esport_mgm/services/clan_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
 
 class SeedingScreen extends StatefulWidget {
   final String tournamentId;
-
   const SeedingScreen({super.key, required this.tournamentId});
 
   @override
@@ -15,44 +14,38 @@ class SeedingScreen extends StatefulWidget {
 
 class _SeedingScreenState extends State<SeedingScreen> {
   final _tournamentService = TournamentService();
-  final _teamService = TeamService();
-  late Future<Tournament?> _tournamentFuture;
-  List<Team> _teams = [];
+  final _clanService = ClanService();
+  Map<String, int> _seeding = {};
+  List<Clan> _clans = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadSeedingData();
   }
 
-  void _loadData() {
-    _tournamentFuture = _tournamentService.getTournamentById(widget.tournamentId);
-    _tournamentFuture.then((tournament) {
-      if (tournament != null) {
-        _teamService.getTeamsByIds(tournament.checkedInTeamIds).then((teams) {
-          setState(() {
-            // Sort teams based on existing seeding if available
-            _teams = teams
-              ..sort((a, b) =>
-                  (tournament.seeding[a.id] ?? 999) - (tournament.seeding[b.id] ?? 999));
-          });
+  Future<void> _loadSeedingData() async {
+    final tournament = await _tournamentService.getTournamentById(widget.tournamentId);
+    if (tournament != null) {
+      _clanService.getClansByIds(tournament.checkedInClanIds).then((clans) {
+        setState(() {
+          _clans = clans;
+          _seeding = Map<String, int>.from(tournament.seeding);
+          _isLoading = false;
         });
-      }
-    });
+      });
+    }
   }
 
   Future<void> _saveSeeding() async {
-    final seeding = <String, int>{};
-    for (int i = 0; i < _teams.length; i++) {
-      seeding[_teams[i].id] = i + 1;
-    }
-
     try {
-      await _tournamentService.updateSeeding(widget.tournamentId, seeding);
+      await _tournamentService.updateSeeding(widget.tournamentId, _seeding);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Seeding saved!')),
         );
+        Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
@@ -72,41 +65,39 @@ class _SeedingScreenState extends State<SeedingScreen> {
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: _saveSeeding,
-          )
+            tooltip: 'Save Seeding',
+          ),
         ],
       ),
-      body: FutureBuilder<Tournament?>(
-        future: _tournamentFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (_teams.isEmpty) {
-            return const Center(
-              child: Text('No checked-in teams to seed.'),
-            );
-          }
-          return ReorderableListView(
-            onReorder: (oldIndex, newIndex) {
-              setState(() {
-                if (newIndex > oldIndex) {
-                  newIndex -= 1;
-                }
-                final team = _teams.removeAt(oldIndex);
-                _teams.insert(newIndex, team);
-              });
-            },
-            children: _teams.map((team) {
-              final seed = _teams.indexOf(team) + 1;
-              return ListTile(
-                key: ValueKey(team.id),
-                leading: Text('#$seed', style: const TextStyle(fontWeight: FontWeight.bold)),
-                title: Text(team.name),
-              );
-            }).toList(),
-          );
-        },
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ReorderableListView.builder(
+              itemCount: _clans.length,
+              itemBuilder: (context, index) {
+                final clan = _clans[index];
+                return ListTile(
+                  key: ValueKey(clan.id),
+                  title: Text(clan.name),
+                  leading: Text('#${_seeding[clan.id] ?? index + 1}'),
+                );
+              },
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) {
+                    newIndex -= 1;
+                  }
+                  final clan = _clans.removeAt(oldIndex);
+                  _clans.insert(newIndex, clan);
+
+                  // Update seeding map
+                  final newSeeding = <String, int>{};
+                  for (int i = 0; i < _clans.length; i++) {
+                    newSeeding[_clans[i].id] = i + 1;
+                  }
+                  _seeding = newSeeding;
+                });
+              },
+            ),
     );
   }
 }

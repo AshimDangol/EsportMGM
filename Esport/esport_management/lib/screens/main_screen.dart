@@ -1,7 +1,8 @@
 import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/announcements_screen.dart';
+import 'package:esport_mgm/screens/home_dashboard_screen.dart';
+import 'package:esport_mgm/screens/settings_screen.dart';
 import 'package:esport_mgm/screens/tournament_list_screen.dart';
-import 'package:esport_mgm/screens/user_profile_screen.dart';
 import 'package:flutter/material.dart';
 
 class MainScreen extends StatefulWidget {
@@ -21,9 +22,10 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
+      HomeDashboardScreen(user: widget.user),
       AnnouncementsScreen(user: widget.user),
       TournamentListScreen(user: widget.user),
-      UserProfileScreen(user: widget.user),
+      SettingsScreen(user: widget.user),
     ];
   }
 
@@ -42,6 +44,10 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.feed),
             label: 'Feed',
           ),
@@ -50,8 +56,8 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Tournaments',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
+            icon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
         currentIndex: _selectedIndex,

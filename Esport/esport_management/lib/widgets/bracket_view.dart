@@ -1,17 +1,22 @@
+import 'package:bson/bson.dart';
 import 'package:esport_mgm/models/match.dart';
-import 'package:esport_mgm/models/team.dart';
-import 'package:esport_mgm/services/team_service.dart';
+import 'package:esport_mgm/models/clan.dart';
+import 'package:esport_mgm/services/clan_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class BracketView extends StatelessWidget {
-  final String tournamentId;
   final List<Match> matches;
-  final TeamService _teamService = TeamService();
-  final TournamentService _tournamentService = TournamentService();
+  final String tournamentId;
+  final Function(Match)? onMatchTapped;
 
-  BracketView({super.key, required this.matches, required this.tournamentId});
+  const BracketView({
+    super.key,
+    required this.matches,
+    required this.tournamentId,
+    this.onMatchTapped,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,185 +24,141 @@ class BracketView extends StatelessWidget {
       return const Center(child: Text('Bracket has not been generated yet.'));
     }
 
-    // Group matches by round
-    final rounds = <int, List<Match>>{};
-    for (final match in matches) {
-      (rounds[match.roundNumber] ??= []).add(match);
-    }
+    final rounds = _groupMatchesByRound();
 
-    return Column(
-      children: rounds.entries.map((entry) {
-        final roundNumber = entry.key;
-        final roundMatches = entry.value;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Text('Round $roundNumber', style: Theme.of(context).textTheme.headlineSmall),
-            ),
-            ...roundMatches.map((match) => _buildMatchCard(context, match)),
-          ],
-        );
-      }).toList(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: rounds.entries.map((entry) {
+          return _buildRoundColumn(context, entry.key, entry.value);
+        }).toList(),
+      ),
+    );
+  }
+
+  Map<int, List<Match>> _groupMatchesByRound() {
+    final map = <int, List<Match>>{};
+    for (final match in matches) {
+      (map[match.roundNumber] ??= []).add(match);
+    }
+    return map;
+  }
+
+  Widget _buildRoundColumn(BuildContext context, int roundNumber, List<Match> roundMatches) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          Text('Round $roundNumber', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ...roundMatches.map((match) => _buildMatchCard(context, match)),
+        ],
+      ),
     );
   }
 
   Widget _buildMatchCard(BuildContext context, Match match) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      margin: const EdgeInsets.symmetric(vertical: 20.0),
       child: InkWell(
-        onTap: () => _showScoreDialog(context, match),
+        onTap: onMatchTapped != null ? () => onMatchTapped!(match) : null,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              _buildTeamRow(context, match.team1Id, match.team1Score),
-              const Divider(),
-              _buildTeamRow(context, match.team2Id, match.team2Score),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    match.scheduledTime == null
-                        ? 'Not scheduled'
-                        : DateFormat.yMd().add_jm().format(match.scheduledTime!.toLocal()),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.schedule),
-                    onPressed: () => _showScheduleDialog(context, match),
-                  ),
-                ],
-              )
-            ],
+          padding: const EdgeInsets.all(12.0),
+          child: SizedBox(
+            width: 200,
+            child: Column(
+              children: [
+                _buildClanRow(match.clan1Id, match.clan1Score),
+                const Divider(height: 10, thickness: 1),
+                _buildClanRow(match.clan2Id, match.clan2Score),
+                const SizedBox(height: 10),
+                _buildMatchFooter(context, match),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTeamRow(BuildContext context, String? teamId, int score) {
-    if (teamId == null) {
-      return const Text('BYE');
-    }
-
-    return FutureBuilder<Team?>(
-      future: _teamService.getTeamById(teamId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const LinearProgressIndicator();
-        }
-        final teamName = snapshot.data?.name ?? 'Unknown Team';
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(teamName, style: const TextStyle(fontSize: 16)),
-            Text(score.toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showScheduleDialog(BuildContext context, Match match) async {
-    final selectedDateTime = await showDatePicker(
-      context: context,
-      initialDate: match.scheduledTime ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
-    );
-
-    if (selectedDateTime != null && context.mounted) {
-      final selectedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(match.scheduledTime ?? DateTime.now()),
-      );
-
-      if (selectedTime != null) {
-        final finalDateTime = DateTime(
-          selectedDateTime.year,
-          selectedDateTime.month,
-          selectedDateTime.day,
-          selectedTime.hour,
-          selectedTime.minute,
-        );
-
-        try {
-          await _tournamentService.scheduleMatch(tournamentId, match.id, finalDateTime);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Match scheduled!')),
-          );
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to schedule match: $e')),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _showScoreDialog(BuildContext context, Match match) async {
-    final team1ScoreController = TextEditingController(text: match.team1Score.toString());
-    final team2ScoreController = TextEditingController(text: match.team2Score.toString());
-
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Enter Scores'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: team1ScoreController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Team 1 Score'),
-              ),
-              TextField(
-                controller: team2ScoreController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Team 2 Score'),
-              ),
-            ],
+  Widget _buildClanRow(String? clanId, int score) {
+    final clanService = ClanService();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: FutureBuilder<Clan?>(
+            future: clanId != null ? clanService.getClanById(clanId) : Future.value(null),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Text('...', style: TextStyle(fontSize: 16));
+              }
+              return Text(
+                snapshot.data?.name ?? 'TBD',
+                style: const TextStyle(fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              );
+            },
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final team1Score = int.tryParse(team1ScoreController.text) ?? 0;
-                final team2Score = int.tryParse(team2ScoreController.text) ?? 0;
-
-                try {
-                  await _tournamentService.updateMatchScore(
-                    tournamentId,
-                    match.id,
-                    team1Score,
-                    team2Score,
-                  );
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Scores updated!')),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to update scores: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+        ),
+        Text(score.toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
     );
+  }
+
+  Widget _buildMatchFooter(BuildContext context, Match match) {
+    if (match.status == MatchStatus.completed) {
+      return const Text('Completed', style: TextStyle(color: Colors.green, fontStyle: FontStyle.italic));
+    }
+    if (match.scheduledTime != null) {
+      return Text(
+        DateFormat.yMd().add_jm().format(match.scheduledTime!.toLocal()),
+        style: const TextStyle(fontSize: 12, color: Colors.grey),
+      );
+    }
+    return GestureDetector(
+      onTap: () => _showDateTimePicker(context, match),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.calendar_today, size: 14, color: Colors.blue),
+          SizedBox(width: 4),
+          Text('Schedule', style: TextStyle(color: Colors.blue, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDateTimePicker(BuildContext context, Match match) async {
+    final tournamentService = TournamentService();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (date == null) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(DateTime.now()),
+    );
+    if (time == null) return;
+
+    final finalDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+
+    try {
+      // Using match.id which is now a String
+      await tournamentService.scheduleMatch(tournamentId, match.id, finalDateTime);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match Scheduled!')),
+      );
+      // A mechanism to refresh the parent view would be needed here
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to schedule match: $e')),
+      );
+    }
   }
 }

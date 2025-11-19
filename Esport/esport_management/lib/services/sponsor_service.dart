@@ -1,20 +1,29 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/sponsor.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class SponsorService {
-  static const String _collection = 'sponsors';
-  final Db _db;
+  final FirebaseFirestore _firestore;
 
-  SponsorService(this._db);
+  SponsorService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  DbCollection get sponsorCollection => _db.collection(_collection);
-
-  Future<void> addSponsor(Sponsor sponsor) async {
-    await sponsorCollection.insert(sponsor.toMap());
+  Future<void> addSponsor(Sponsor sponsor) {
+    return _firestore.collection('sponsors').add(sponsor.toMap());
   }
 
-  Future<List<Sponsor>> getSponsors() async {
-    final sponsorDocs = await sponsorCollection.find().toList();
-    return sponsorDocs.map((doc) => Sponsor.fromMap(doc)).toList();
+  Future<void> updateSponsor(Sponsor sponsor) {
+    return _firestore.collection('sponsors').doc(sponsor.id).update(sponsor.toMap());
+  }
+
+  Future<void> deleteSponsor(String sponsorId) {
+    return _firestore.collection('sponsors').doc(sponsorId).delete();
+  }
+
+  Stream<List<Sponsor>> getSponsorsStream() {
+    return _firestore.collection('sponsors').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return Sponsor.fromMap(doc.id, doc.data());
+      }).toList();
+    });
   }
 }

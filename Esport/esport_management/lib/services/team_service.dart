@@ -3,27 +3,37 @@ import 'package:esport_mgm/models/team.dart';
 
 class TeamService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late final CollectionReference _teamsCollection;
+  late final CollectionReference<Map<String, dynamic>> _collection;
 
   TeamService() {
-    _teamsCollection = _firestore.collection('teams');
+    _collection = _firestore.collection('teams');
   }
 
-  Future<void> addTeam(Team team) async {
-    await _teamsCollection.add(team.toMap());
+  Future<void> createTeam(Team team) async {
+    await _collection.doc(team.id).set(team.toMap());
   }
 
-  Future<List<Team>> getTeamsForTournament(String tournamentId) async {
-    final snapshot = await _teamsCollection.where('tournamentId', isEqualTo: tournamentId).get();
-    return snapshot.docs.map((doc) => Team.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
-  }
-
-  Future<List<Team>> getAllTeams({Region? region}) async {
-    Query query = _teamsCollection;
-    if (region != null && region != Region.global) {
-      query = query.where('region', isEqualTo: region.toString());
+  Future<Team?> getTeamById(String teamId) async {
+    final doc = await _collection.doc(teamId).get();
+    if (doc.exists) {
+      return Team.fromMap(doc.data()!, doc.id);
     }
-    final snapshot = await query.orderBy('name').get();
-    return snapshot.docs.map((doc) => Team.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+    return null;
+  }
+
+  Future<List<Team>> getUserTeams(String userId) async {
+    final snapshot = await _collection.where('managerId', isEqualTo: userId).get();
+    return snapshot.docs.map((doc) => Team.fromMap(doc.data(), doc.id)).toList();
+  }
+
+  Future<List<Team>> getTeamsByIds(List<String> teamIds) async {
+    if (teamIds.isEmpty) return [];
+    final snapshot = await _collection.where(FieldPath.documentId, whereIn: teamIds).get();
+    return snapshot.docs.map((doc) => Team.fromMap(doc.data(), doc.id)).toList();
+  }
+
+  Future<List<Team>> getAllTeams() async {
+    final snapshot = await _collection.get();
+    return snapshot.docs.map((doc) => Team.fromMap(doc.data(), doc.id)).toList();
   }
 }

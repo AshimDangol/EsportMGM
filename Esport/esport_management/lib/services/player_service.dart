@@ -3,14 +3,14 @@ import 'package:esport_mgm/models/player.dart';
 
 class PlayerService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late final CollectionReference _collection;
+  late final CollectionReference<Map<String, dynamic>> _collection;
 
   PlayerService() {
     _collection = _firestore.collection('players');
   }
 
-  Future<void> createPlayer(Player player) async {
-    await _collection.add(player.toMap());
+  Future<void> addPlayer(Player player) async {
+    await _collection.doc(player.id).set(player.toMap());
   }
 
   Future<void> updatePlayer(Player player) async {
@@ -22,17 +22,29 @@ class PlayerService {
   }
 
   Future<Player?> getPlayerByUserId(String userId) async {
-    final snapshot = await _collection.where('userId', isEqualTo: userId).get();
+    final snapshot = await _collection.where('userId', isEqualTo: userId).limit(1).get();
     if (snapshot.docs.isNotEmpty) {
       final doc = snapshot.docs.first;
-      return Player.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      return Player.fromMap(doc.data(), doc.id);
     }
     return null;
   }
 
   Future<List<Player>> getPlayers() async {
     final snapshot = await _collection.get();
-    return snapshot.docs.map((doc) => Player.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+    return snapshot.docs.map((doc) => Player.fromMap(doc.data(), doc.id)).toList();
+  }
+
+  Future<List<Player>> getPlayersByIds(List<String> playerIds) async {
+    if (playerIds.isEmpty) return [];
+    final snapshot = await _collection.where(FieldPath.documentId, whereIn: playerIds).get();
+    return snapshot.docs.map((doc) => Player.fromMap(doc.data(), doc.id)).toList();
+  }
+
+  Future<List<Player>> getPlayersByClan(String clanId) async {
+    // This is a placeholder. In a real app, you would have a 'clanId' field in your player documents.
+    // For now, we will return all players.
+    return getPlayers();
   }
 
   Stream<List<Player>> getPlayersStream() {

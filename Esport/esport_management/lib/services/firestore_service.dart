@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:esport_mgm/models/user.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
@@ -8,7 +9,17 @@ class FirestoreService {
   Future<void> createUser(String uid, String email) async {
     return _firestore.collection('users').doc(uid).set({
       'email': email,
-      'role': 'spectator', // Storing the role as a simple string
+      'role': UserRole.viewer.name, // Default role
+      'theme': 'system',
+    });
+  }
+
+  Stream<User?> getUserStream(String uid) {
+    return _firestore.collection('users').doc(uid).snapshots().map((snapshot) {
+      if (snapshot.exists) {
+        return User.fromMap(snapshot.id, snapshot.data()!);
+      }
+      return null;
     });
   }
 
@@ -16,19 +27,26 @@ class FirestoreService {
     return _firestore.collection('users').doc(uid).get();
   }
 
-  Future<void> addTeam(Map<String, dynamic> teamData) async {
-    await _firestore.collection('teams').add(teamData);
+  Future<List<User>> getUsers(List<String> uids) async {
+    if (uids.isEmpty) return [];
+    final snapshot = await _firestore.collection('users').where(FieldPath.documentId, whereIn: uids).get();
+    return snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList();
   }
 
-  Future<void> addPlayer(Map<String, dynamic> playerData) async {
-    await _firestore.collection('players').add(playerData);
+  Future<List<User>> getAllUsers() async {
+    final snapshot = await _firestore.collection('users').get();
+    return snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList();
   }
 
-  Future<void> addSpectator(Map<String, dynamic> spectatorData) async {
-    await _firestore.collection('spectators').add(spectatorData);
+  Future<void> updateUserTheme(String uid, String theme) async {
+    return _firestore.collection('users').doc(uid).update({
+      'theme': theme,
+    });
   }
 
-  Future<void> purchaseTicket(Map<String, dynamic> ticketData) async {
-    await _firestore.collection('tickets').add(ticketData);
+  Future<void> updateUserRole(String uid, UserRole role) async {
+    return _firestore.collection('users').doc(uid).update({
+      'role': role.name,
+    });
   }
 }

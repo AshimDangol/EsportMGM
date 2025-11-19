@@ -1,31 +1,26 @@
 import 'package:esport_mgm/models/sponsor.dart';
-import 'package:esport_mgm/services/db_service.dart';
+import 'package:esport_mgm/models/user.dart';
+import 'package:esport_mgm/screens/edit_sponsor_screen.dart';
 import 'package:esport_mgm/services/sponsor_service.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SponsorManagementScreen extends StatefulWidget {
-  const SponsorManagementScreen({super.key});
+  final User user;
+  const SponsorManagementScreen({super.key, required this.user});
 
   @override
   State<SponsorManagementScreen> createState() => _SponsorManagementScreenState();
 }
 
 class _SponsorManagementScreenState extends State<SponsorManagementScreen> {
-  late final SponsorService _sponsorService;
-  Future<List<Sponsor>>? _sponsorsFuture;
+  final SponsorService _sponsorService = SponsorService();
 
-  @override
-  void initState() {
-    super.initState();
-    _sponsorService = SponsorService(DBService.instance.db);
-    _loadSponsors();
-  }
-
-  Future<void> _loadSponsors() async {
-    setState(() {
-      _sponsorsFuture = _sponsorService.getSponsors();
-    });
+  void _navigateToEditScreen([Sponsor? sponsor]) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditSponsorScreen(user: widget.user, sponsor: sponsor),
+      ),
+    );
   }
 
   @override
@@ -34,72 +29,42 @@ class _SponsorManagementScreenState extends State<SponsorManagementScreen> {
       appBar: AppBar(
         title: const Text('Sponsor Management'),
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadSponsors,
-        child: FutureBuilder<List<Sponsor>>(
-          future: _sponsorsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            final sponsors = snapshot.data ?? [];
-            if (sponsors.isEmpty) {
-              return const Center(child: Text('No sponsors found.'));
-            }
-            return ListView.builder(
-              itemCount: sponsors.length,
-              itemBuilder: (context, index) {
-                final sponsor = sponsors[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    title: Text(sponsor.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(
-                        'Level: ${sponsor.sponsorshipLevel}\nExpires: ${sponsor.contractEndDate.toLocal().toShortDateString()}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('\$${sponsor.sponsorshipAmount.toStringAsFixed(2)}'),
-                        if (sponsor.brandAssetUrl != null)
-                          IconButton(
-                            icon: const Icon(Icons.folder_zip),
-                            tooltip: 'Open Brand Assets',
-                            onPressed: () => _launchURL(sponsor.brandAssetUrl!),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
+      body: StreamBuilder<List<Sponsor>>(
+        stream: _sponsorService.getSponsorsStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No sponsors found.'));
+          }
+
+          final sponsors = snapshot.data!;
+          return ListView.builder(
+            itemCount: sponsors.length,
+            itemBuilder: (context, index) {
+              final sponsor = sponsors[index];
+              final bool isCreator = sponsor.creatorId == widget.user.id;
+              return ListTile(
+                title: Text(sponsor.name),
+                subtitle: Text(sponsor.level.name),
+                onTap: isCreator ? () => _navigateToEditScreen(sponsor) : null,
+                trailing: isCreator
+                    ? IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _sponsorService.deleteSponsor(sponsor.id),
+                      )
+                    : null,
+              );
+            },
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddSponsorDialog(),
+        onPressed: () => _navigateToEditScreen(),
         child: const Icon(Icons.add),
-        tooltip: 'Add Sponsor',
       ),
     );
-  }
-
-  void _showAddSponsorDialog() { /* ... existing code ... */ }
-
-  Future<void> _launchURL(String urlString) async {
-    final Uri url = Uri.parse(urlString);
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not launch $urlString')),
-      );
-    }
-  }
-}
-
-extension on DateTime {
-  String toShortDateString() {
-    return '$year-$month-$day';
   }
 }

@@ -1,4 +1,3 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthenticationService {
@@ -7,17 +6,6 @@ class AuthenticationService {
   AuthenticationService(this._firebaseAuth);
 
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
-
-  User? get currentUser => _firebaseAuth.currentUser;
-
-  Future<String?> signUp({required String email, required String password}) async {
-    try {
-      await _firebaseAuth.createUserWithEmailAndPassword(email: email, password: password);
-      return "Signed up";
-    } on FirebaseAuthException catch (e) {
-      return e.message;
-    }
-  }
 
   Future<String?> signIn({required String email, required String password}) async {
     try {
@@ -28,7 +16,29 @@ class AuthenticationService {
     }
   }
 
+  Future<String?> signUp({required String email, required String password}) async {
+    try {
+      await _firebaseAuth.createUserWithEmailAndPassword(email: email, password: password);
+      return "Signed up";
+    } on FirebaseAuthException catch (e) {
+      return e.message;
+    }
+  }
+
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
+  }
+
+  Future<String?> signInAnonymously() async {
+    try {
+      await _firebaseAuth.signInAnonymously();
+      return "Signed in anonymously";
+    } on FirebaseAuthException catch (e) {
+      return e.message;
+    }
+  }
+
+  User? getCurrentUser() {
+    return _firebaseAuth.currentUser;
   }
 }

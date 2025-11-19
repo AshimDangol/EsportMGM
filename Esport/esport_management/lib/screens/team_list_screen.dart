@@ -1,6 +1,7 @@
 import 'package:esport_mgm/models/team.dart';
 import 'package:esport_mgm/models/user.dart';
-import 'package:esport_mgm/screens/player_dashboard_screen.dart';
+import 'package:esport_mgm/screens/create_team_screen.dart';
+import 'package:esport_mgm/screens/team_details_screen.dart';
 import 'package:esport_mgm/services/team_service.dart';
 import 'package:flutter/material.dart';
 
@@ -25,16 +26,30 @@ class _TeamListScreenState extends State<TeamListScreen> {
 
   Future<void> _loadTeams() async {
     setState(() {
-      // For simplicity, we load all teams. In a real app, this might be teams for the current user.
       _teamsFuture = _teamService.getAllTeams();
     });
+  }
+
+  void _navigateToDetails(Team team) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => TeamDetailsScreen(team: team, user: widget.user),
+    ));
+  }
+
+  void _navigateToCreate() async {
+    final result = await Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => CreateTeamScreen(user: widget.user),
+    ));
+    if (result == true) {
+      _loadTeams();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Teams'),
+        title: const Text('Teams'),
       ),
       body: RefreshIndicator(
         onRefresh: _loadTeams,
@@ -56,28 +71,19 @@ class _TeamListScreenState extends State<TeamListScreen> {
               itemCount: teams.length,
               itemBuilder: (context, index) {
                 final team = teams[index];
-                return ExpansionTile(
+                return ListTile(
                   title: Text(team.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  children: team.players.map((playerId) {
-                    return ListTile(
-                      title: Text(playerId),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.dashboard),
-                        tooltip: 'View Player Dashboard',
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PlayerDashboardScreen(playerId: playerId),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                  subtitle: Text(team.game),
+                  onTap: () => _navigateToDetails(team),
                 );
               },
             );
           },
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _navigateToCreate,
+        child: const Icon(Icons.add),
       ),
     );
   }

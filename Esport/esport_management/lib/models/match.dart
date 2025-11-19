@@ -1,96 +1,132 @@
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 enum MatchStatus {
-  scheduled,
+  pending,
   inProgress,
   completed,
-  pending, // Not yet scheduled
+  archived,
 }
 
+@immutable
 class Match {
-  final ObjectId id;
+  final String id;
   final int roundNumber;
   final int matchNumber;
-
-  final String? team1Id;
-  final String? team2Id;
-
-  final int team1Score;
-  final int team2Score;
-
+  final String? clan1Id;
+  final String? clan2Id;
+  final int clan1Score;
+  final int clan2Score;
   final String? winnerId;
-  final DateTime? scheduledTime;
   final MatchStatus status;
+  final DateTime? scheduledTime;
 
-  Match({
-    ObjectId? id,
+  const Match({
+    this.id = '',
     required this.roundNumber,
     required this.matchNumber,
-    this.team1Id,
-    this.team2Id,
-    this.team1Score = 0,
-    this.team2Score = 0,
+    this.clan1Id,
+    this.clan2Id,
+    this.clan1Score = 0,
+    this.clan2Score = 0,
     this.winnerId,
-    this.scheduledTime,
     this.status = MatchStatus.pending,
-  }) : id = id ?? ObjectId();
+    this.scheduledTime,
+  });
 
   factory Match.fromMap(Map<String, dynamic> map) {
     return Match(
-      id: map['_id'] as ObjectId?,
-      roundNumber: map['roundNumber'] as int,
-      matchNumber: map['matchNumber'] as int,
-      team1Id: map['team1Id'] as String?,
-      team2Id: map['team2Id'] as String?,
-      team1Score: map['team1Score'] as int? ?? 0,
-      team2Score: map['team2Score'] as int? ?? 0,
+      id: map['id'] as String? ?? const Uuid().v4(),
+      roundNumber: map['roundNumber'] as int? ?? 0,
+      matchNumber: map['matchNumber'] as int? ?? 0,
+      clan1Id: map['clan1Id'] as String?,
+      clan2Id: map['clan2Id'] as String?,
+      clan1Score: map['clan1Score'] as int? ?? 0,
+      clan2Score: map['clan2Score'] as int? ?? 0,
       winnerId: map['winnerId'] as String?,
-      scheduledTime: map['scheduledTime'] as DateTime?,
       status: MatchStatus.values.firstWhere(
-        (e) => e.toString() == map['status'],
+        (e) => e.name == map['status'],
         orElse: () => MatchStatus.pending,
       ),
+      scheduledTime: (map['scheduledTime'] as Timestamp?)?.toDate(),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      '_id': id,
+      'id': id,
       'roundNumber': roundNumber,
       'matchNumber': matchNumber,
-      'team1Id': team1Id,
-      'team2Id': team2Id,
-      'team1Score': team1Score,
-      'team2Score': team2Score,
+      'clan1Id': clan1Id,
+      'clan2Id': clan2Id,
+      'clan1Score': clan1Score,
+      'clan2Score': clan2Score,
       'winnerId': winnerId,
-      'scheduledTime': scheduledTime,
-      'status': status.toString(),
+      'status': status.name,
+      'scheduledTime': scheduledTime != null ? Timestamp.fromDate(scheduledTime!) : null,
     };
   }
 
   Match copyWith({
-    ObjectId? id,
+    String? id,
     int? roundNumber,
     int? matchNumber,
-    String? team1Id,
-    String? team2Id,
-    int? team1Score,
-    int? team2Score,
+    String? clan1Id,
+    String? clan2Id,
+    int? clan1Score,
+    int? clan2Score,
     String? winnerId,
-    DateTime? scheduledTime,
     MatchStatus? status,
+    DateTime? scheduledTime,
   }) {
     return Match(
       id: id ?? this.id,
       roundNumber: roundNumber ?? this.roundNumber,
       matchNumber: matchNumber ?? this.matchNumber,
-      team1Id: team1Id ?? this.team1Id,
-      team2Id: team2Id ?? this.team2Id,
-      team1Score: team1Score ?? this.team1Score,
-      team2Score: team2Score ?? this.team2Score,
+      clan1Id: clan1Id ?? this.clan1Id,
+      clan2Id: clan2Id ?? this.clan2Id,
+      clan1Score: clan1Score ?? this.clan1Score,
+      clan2Score: clan2Score ?? this.clan2Score,
       winnerId: winnerId ?? this.winnerId,
-      scheduledTime: scheduledTime ?? this.scheduledTime,
       status: status ?? this.status,
+      scheduledTime: scheduledTime ?? this.scheduledTime,
     );
+  }
+
+  @override
+  String toString() {
+    return 'Match(id: $id, roundNumber: $roundNumber, matchNumber: $matchNumber, clan1Id: $clan1Id, clan2Id: $clan2Id, clan1Score: $clan1Score, clan2Score: $clan2Score, winnerId: $winnerId, status: $status, scheduledTime: $scheduledTime)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is Match &&
+        other.id == id &&
+        other.roundNumber == roundNumber &&
+        other.matchNumber == matchNumber &&
+        other.clan1Id == clan1Id &&
+        other.clan2Id == clan2Id &&
+        other.clan1Score == clan1Score &&
+        other.clan2Score == clan2Score &&
+        other.winnerId == winnerId &&
+        other.status == status &&
+        other.scheduledTime == scheduledTime;
+  }
+
+  @override
+  int get hashCode {
+    return id.hashCode ^
+        roundNumber.hashCode ^
+        matchNumber.hashCode ^
+        clan1Id.hashCode ^
+        clan2Id.hashCode ^
+        clan1Score.hashCode ^
+        clan2Score.hashCode ^
+        winnerId.hashCode ^
+        status.hashCode ^
+        scheduledTime.hashCode;
   }
 }

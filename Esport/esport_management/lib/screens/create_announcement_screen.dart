@@ -1,65 +1,42 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/announcement.dart';
+import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/services/announcement_service.dart';
-import 'package:esport_mgm/services/db_service.dart';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 class CreateAnnouncementScreen extends StatefulWidget {
-  const CreateAnnouncementScreen({super.key});
+  final User user;
+  const CreateAnnouncementScreen({super.key, required this.user});
 
   @override
   State<CreateAnnouncementScreen> createState() => _CreateAnnouncementScreenState();
 }
 
 class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
-  late final AnnouncementService _announcementService;
   final _formKey = GlobalKey<FormState>();
+  final _announcementService = AnnouncementService();
+
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
-  bool _isSaving = false;
+  final _imageUrlController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _announcementService = AnnouncementService(DBService.instance.db);
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _contentController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitAnnouncement() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    // In a real app, get this from your auth service
-    const authorId = 'current_admin_user_id';
-
-    final announcement = Announcement(
-      title: _titleController.text,
-      content: _contentController.text,
-      authorId: authorId,
-    );
-
-    try {
-      await _announcementService.createAnnouncement(announcement);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Announcement posted successfully.')),
+  Future<void> _submit() async {
+    if (_formKey.currentState!.validate()) {
+      final announcement = Announcement(
+        id: const Uuid().v4(),
+        title: _titleController.text,
+        content: _contentController.text,
+        timestamp: Timestamp.now(),
+        authorName: widget.user.email, // Using user's email as author name
+        imageUrl: _imageUrlController.text.isNotEmpty ? _imageUrlController.text : null,
       );
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to post announcement: $e')),
-      );
-    } finally {
-      setState(() {
-        _isSaving = false;
-      });
+
+      await _announcementService.addAnnouncement(announcement);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -69,28 +46,44 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
       appBar: AppBar(
         title: const Text('Create Announcement'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(labelText: 'Title'),
-                validator: (value) => (value == null || value.isEmpty) ? 'Title is required' : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a title';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _contentController,
-                decoration: const InputDecoration(labelText: 'Content', border: OutlineInputBorder()),
-                maxLines: 10,
-                validator: (value) => (value == null || value.isEmpty) ? 'Content is required' : null,
+                decoration: const InputDecoration(labelText: 'Content'),
+                maxLines: 5,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter the content';
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _imageUrlController,
+                decoration: const InputDecoration(labelText: 'Image URL (Optional)'),
+              ),
+              const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _isSaving ? null : _submitAnnouncement,
-                child: _isSaving ? const CircularProgressIndicator() : const Text('Post Announcement'),
+                onPressed: _submit,
+                child: const Text('Submit'),
               ),
             ],
           ),

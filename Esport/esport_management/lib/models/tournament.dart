@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/match.dart';
 import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
 
 enum TournamentFormat {
   singleElimination,
@@ -10,7 +11,6 @@ enum TournamentFormat {
   league,
 }
 
-// Represents a single entry in the prize distribution list
 @immutable
 class PrizeDistribution {
   final int rank;
@@ -49,14 +49,17 @@ class Tournament {
   final String description;
   final double prizePool;
   final List<PrizeDistribution> prizeDistribution;
-  final List<String> registeredTeamIds;
-  final List<String> checkedInTeamIds;
+  final List<String> registeredClanIds;
+  final List<String> checkedInClanIds;
+  final List<String> participatingPlayerIds;
   final TournamentFormat format;
   final String rules;
   final List<Match> matches;
   final Map<String, int> seeding;
+  final String adminId;
+  final String joinCode;
 
-  Tournament({
+  const Tournament({
     this.id = '',
     required this.name,
     required this.game,
@@ -66,12 +69,15 @@ class Tournament {
     this.description = '',
     this.prizePool = 0.0,
     this.prizeDistribution = const [],
-    this.registeredTeamIds = const [],
-    this.checkedInTeamIds = const [],
+    this.registeredClanIds = const [],
+    this.checkedInClanIds = const [],
+    this.participatingPlayerIds = const [],
     this.format = TournamentFormat.singleElimination,
     this.rules = '',
     this.matches = const [],
     this.seeding = const {},
+    required this.adminId,
+    required this.joinCode,
   });
 
   factory Tournament.fromMap(Map<String, dynamic> map, String documentId) {
@@ -87,15 +93,18 @@ class Tournament {
       prizeDistribution: (map['prizeDistribution'] as List? ?? [])
           .map((p) => PrizeDistribution.fromMap(p as Map<String, dynamic>))
           .toList(),
-      registeredTeamIds: List<String>.from(map['registeredTeamIds'] ?? []),
-      checkedInTeamIds: List<String>.from(map['checkedInTeamIds'] ?? []),
+      registeredClanIds: List<String>.from(map['registeredClanIds'] ?? []),
+      checkedInClanIds: List<String>.from(map['checkedInClanIds'] ?? []),
+      participatingPlayerIds: List<String>.from(map['participatingPlayerIds'] ?? []),
       format: TournamentFormat.values.firstWhere(
-        (e) => e.toString() == map['format'],
+        (e) => e.name == map['format'],
         orElse: () => TournamentFormat.singleElimination,
       ),
       rules: map['rules'] as String? ?? '',
       matches: (map['matches'] as List? ?? []).map((m) => Match.fromMap(m)).toList(),
       seeding: Map<String, int>.from(map['seeding'] ?? {}),
+      adminId: map['adminId'] as String? ?? '',
+      joinCode: map['joinCode'] as String? ?? '',
     );
   }
 
@@ -109,12 +118,15 @@ class Tournament {
       'description': description,
       'prizePool': prizePool,
       'prizeDistribution': prizeDistribution.map((p) => p.toMap()).toList(),
-      'registeredTeamIds': registeredTeamIds,
-      'checkedInTeamIds': checkedInTeamIds,
-      'format': format.toString(),
+      'registeredClanIds': registeredClanIds,
+      'checkedInClanIds': checkedInClanIds,
+      'participatingPlayerIds': participatingPlayerIds,
+      'format': format.name,
       'rules': rules,
       'matches': matches.map((m) => m.toMap()).toList(),
       'seeding': seeding,
+      'adminId': adminId,
+      'joinCode': joinCode,
     };
   }
 
@@ -128,12 +140,15 @@ class Tournament {
     String? description,
     double? prizePool,
     List<PrizeDistribution>? prizeDistribution,
-    List<String>? registeredTeamIds,
-    List<String>? checkedInTeamIds,
+    List<String>? registeredClanIds,
+    List<String>? checkedInClanIds,
+    List<String>? participatingPlayerIds,
     TournamentFormat? format,
     String? rules,
     List<Match>? matches,
     Map<String, int>? seeding,
+    String? adminId,
+    String? joinCode,
   }) {
     return Tournament(
       id: id ?? this.id,
@@ -145,12 +160,69 @@ class Tournament {
       description: description ?? this.description,
       prizePool: prizePool ?? this.prizePool,
       prizeDistribution: prizeDistribution ?? this.prizeDistribution,
-      registeredTeamIds: registeredTeamIds ?? this.registeredTeamIds,
-      checkedInTeamIds: checkedInTeamIds ?? this.checkedInTeamIds,
+      registeredClanIds: registeredClanIds ?? this.registeredClanIds,
+      checkedInClanIds: checkedInClanIds ?? this.checkedInClanIds,
+      participatingPlayerIds: participatingPlayerIds ?? this.participatingPlayerIds,
       format: format ?? this.format,
       rules: rules ?? this.rules,
       matches: matches ?? this.matches,
       seeding: seeding ?? this.seeding,
+      adminId: adminId ?? this.adminId,
+      joinCode: joinCode ?? this.joinCode,
     );
+  }
+
+  @override
+  String toString() {
+    return 'Tournament(id: $id, name: $name, game: $game, startDate: $startDate, endDate: $endDate, venue: $venue, description: $description, prizePool: $prizePool, prizeDistribution: $prizeDistribution, registeredClanIds: $registeredClanIds, checkedInClanIds: $checkedInClanIds, participatingPlayerIds: $participatingPlayerIds, format: $format, rules: $rules, matches: $matches, seeding: $seeding, adminId: $adminId, joinCode: $joinCode)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    final listEquals = const DeepCollectionEquality().equals;
+    final mapEquals = const DeepCollectionEquality().equals;
+
+    return other is Tournament &&
+        other.id == id &&
+        other.name == name &&
+        other.game == game &&
+        other.startDate == startDate &&
+        other.endDate == endDate &&
+        other.venue == venue &&
+        other.description == description &&
+        other.prizePool == prizePool &&
+        listEquals(other.prizeDistribution, prizeDistribution) &&
+        listEquals(other.registeredClanIds, registeredClanIds) &&
+        listEquals(other.checkedInClanIds, checkedInClanIds) &&
+        listEquals(other.participatingPlayerIds, participatingPlayerIds) &&
+        other.format == format &&
+        other.rules == rules &&
+        listEquals(other.matches, matches) &&
+        mapEquals(other.seeding, seeding) &&
+        other.adminId == adminId &&
+        other.joinCode == joinCode;
+  }
+
+  @override
+  int get hashCode {
+    return id.hashCode ^
+        name.hashCode ^
+        game.hashCode ^
+        startDate.hashCode ^
+        endDate.hashCode ^
+        venue.hashCode ^
+        description.hashCode ^
+        prizePool.hashCode ^
+        prizeDistribution.hashCode ^
+        registeredClanIds.hashCode ^
+        checkedInClanIds.hashCode ^
+        participatingPlayerIds.hashCode ^
+        format.hashCode ^
+        rules.hashCode ^
+        matches.hashCode ^
+        seeding.hashCode ^
+        adminId.hashCode ^
+        joinCode.hashCode;
   }
 }

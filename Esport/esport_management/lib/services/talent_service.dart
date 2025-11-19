@@ -1,20 +1,29 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/talent.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 
 class TalentService {
-  static const String _collection = 'talent';
-  final Db _db;
+  final FirebaseFirestore _firestore;
 
-  TalentService(this._db);
+  TalentService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  DbCollection get talentCollection => _db.collection(_collection);
-
-  Future<void> addTalent(Talent talent) async {
-    await talentCollection.insert(talent.toMap());
+  Future<void> addTalent(Talent talent) {
+    return _firestore.collection('talent').add(talent.toMap());
   }
 
-  Future<List<Talent>> getTalent() async {
-    final talentDocs = await talentCollection.find().toList();
-    return talentDocs.map((doc) => Talent.fromMap(doc)).toList();
+  Future<void> updateTalent(Talent talent) {
+    return _firestore.collection('talent').doc(talent.id).update(talent.toMap());
+  }
+
+  Future<void> deleteTalent(String talentId) {
+    return _firestore.collection('talent').doc(talentId).delete();
+  }
+
+  Stream<List<Talent>> getTalentStream() {
+    return _firestore.collection('talent').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return Talent.fromMap(doc.id, doc.data());
+      }).toList();
+    });
   }
 }

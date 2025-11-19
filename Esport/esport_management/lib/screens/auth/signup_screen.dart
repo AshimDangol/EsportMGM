@@ -1,56 +1,55 @@
-import 'package:esport_mgm/screens/auth/signup_screen.dart';
 import 'package:esport_mgm/services/authentication_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
+  Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
+
     final authService = context.read<AuthenticationService>();
-    final result = await authService.signIn(
+    final result = await authService.signUp(
       email: _emailController.text,
       password: _passwordController.text,
     );
-    if (result != "Signed in" && mounted) {
+
+    if (result == "Signed up" && mounted) {
+      Navigator.pop(context); // Go back to the login screen after successful signup
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result ?? 'An unknown error occurred.')),
       );
     }
+
     if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _signInAnonymously() async {
-    setState(() => _isLoading = true);
-    final authService = context.read<AuthenticationService>();
-    await authService.signInAnonymously();
-    if (mounted) setState(() => _isLoading = false);
-  }
-
-  @override
+ @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        // Gaming-themed background (placeholder color)
+        // Consistent gaming-themed background
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xFF1A237E), Color(0xFF0D1137)],
@@ -67,8 +66,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    'ESPORTS MGM',
-                    style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 4),
+                    'CREATE ACCOUNT',
+                    style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 2),
                   ),
                   const SizedBox(height: 48),
                   TextFormField(
@@ -86,23 +85,36 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                     style: const TextStyle(color: Colors.white),
                     decoration: _buildInputDecoration('Password'),
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? 'Please enter your password'
+                    validator: (value) => (value == null || value.length < 6)
+                        ? 'Password must be at least 6 characters'
+                        : null,
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _buildInputDecoration('Confirm Password'),
+                    validator: (value) => (value != _passwordController.text)
+                        ? 'Passwords do not match'
                         : null,
                   ),
                   const SizedBox(height: 32),
                   if (_isLoading)
                     const CircularProgressIndicator()
                   else
-                    _buildLoginButtons(),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _signUp,
+                         style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                        child: const Text('Sign Up'),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => const SignupScreen(),
-                      ));
-                    },
-                    child: const Text("Don't have an account? Sign Up", style: TextStyle(color: Colors.white70)),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Already have an account? Log In", style: TextStyle(color: Colors.white70)),
                   ),
                 ],
               ),
@@ -110,28 +122,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildLoginButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton(
-          onPressed: _login,
-          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-          child: const Text('Login'),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: _signInAnonymously,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            side: const BorderSide(color: Colors.white54),
-          ),
-          child: const Text('Continue as Viewer', style: TextStyle(color: Colors.white)),
-        ),
-      ],
     );
   }
 

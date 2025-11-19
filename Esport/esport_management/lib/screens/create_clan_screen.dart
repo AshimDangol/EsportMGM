@@ -1,37 +1,33 @@
-import 'package:esport_mgm/models/team.dart';
+import 'package:esport_mgm/models/clan.dart';
 import 'package:esport_mgm/models/user.dart';
-import 'package:esport_mgm/services/firestore_service.dart';
-import 'package:esport_mgm/services/team_service.dart';
+import 'package:esport_mgm/services/clan_service.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
-class CreateTeamScreen extends StatefulWidget {
+class CreateClanScreen extends StatefulWidget {
   final User user;
-  const CreateTeamScreen({super.key, required this.user});
+  const CreateClanScreen({super.key, required this.user});
 
   @override
-  State<CreateTeamScreen> createState() => _CreateTeamScreenState();
+  State<CreateClanScreen> createState() => _CreateClanScreenState();
 }
 
-class _CreateTeamScreenState extends State<CreateTeamScreen> {
+class _CreateClanScreenState extends State<CreateClanScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _teamService = TeamService();
-  final _firestoreService = FirestoreService();
+  final _clanService = ClanService();
   final _nameController = TextEditingController();
-  final _gameController = TextEditingController();
-  final _regionController = TextEditingController();
+  final _tagController = TextEditingController();
 
   bool _isLoading = false;
 
   @override
   void dispose() {
     _nameController.dispose();
-    _gameController.dispose();
-    _regionController.dispose();
+    _tagController.dispose();
     super.dispose();
   }
 
-  Future<void> _createTeam() async {
+  Future<void> _createClan() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -41,30 +37,25 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     });
 
     try {
-      final team = Team(
+      final clan = Clan(
         id: const Uuid().v4(),
         name: _nameController.text,
-        game: _gameController.text,
-        region: _regionController.text,
-        managerId: widget.user.id,
-        playerIds: [],
+        tag: _tagController.text,
+        ownerId: widget.user.id,
+        memberIds: [widget.user.id],
       );
-      await _teamService.createTeam(team);
-
-      if (widget.user.role == UserRole.spectator) {
-        await _firestoreService.updateUserRole(widget.user.id, UserRole.teamManager);
-      }
+      await _clanService.createClan(clan);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Team Created!')),
+          const SnackBar(content: Text('Clan Created!')),
         );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create team: $e')),
+          SnackBar(content: Text('Failed to create clan: $e')),
         );
       }
     } finally {
@@ -80,7 +71,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create a Team'),
+        title: const Text('Create a Clan'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -91,32 +82,21 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Team Name'),
+                decoration: const InputDecoration(labelText: 'Clan Name'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a team name';
+                    return 'Please enter a clan name';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
               TextFormField(
-                controller: _gameController,
-                decoration: const InputDecoration(labelText: 'Game'),
+                controller: _tagController,
+                decoration: const InputDecoration(labelText: 'Clan Tag'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a game';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _regionController,
-                decoration: const InputDecoration(labelText: 'Region'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a region';
+                    return 'Please enter a clan tag';
                   }
                   return null;
                 },
@@ -126,7 +106,7 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                 const Center(child: CircularProgressIndicator())
               else
                 ElevatedButton(
-                  onPressed: _createTeam,
+                  onPressed: _createClan,
                   child: const Text('Create'),
                 ),
             ],

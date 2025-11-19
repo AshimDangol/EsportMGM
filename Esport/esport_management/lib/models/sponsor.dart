@@ -1,49 +1,57 @@
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
+enum SponsorshipLevel {
+  platinum,
+  gold,
+  silver,
+  bronze,
+  partner,
+}
+
+@immutable
 class Sponsor {
-  final ObjectId id;
+  final String id;
   final String name;
-  final String contactPerson;
-  final String contactEmail;
-  final DateTime contractStartDate;
-  final DateTime contractEndDate;
-  final String sponsorshipLevel;
-  final double sponsorshipAmount;
-  final String? brandAssetUrl; // URL to a ZIP file or cloud folder
+  final String? logoUrl;
+  final String? website;
+  final SponsorshipLevel level;
+  final String description;
+  final String creatorId;
 
-  Sponsor({
+  const Sponsor({
+    required this.id,
     required this.name,
-    required this.contactPerson,
-    required this.contactEmail,
-    required this.contractStartDate,
-    required this.contractEndDate,
-    required this.sponsorshipLevel,
-    required this.sponsorshipAmount,
-    this.brandAssetUrl,
-  }) : id = ObjectId();
+    this.logoUrl,
+    this.website,
+    this.level = SponsorshipLevel.partner,
+    this.description = '',
+    required this.creatorId,
+  });
 
-  Map<String, dynamic> toMap() => {
-        '_id': id,
-        'name': name,
-        'contactPerson': contactPerson,
-        'contactEmail': contactEmail,
-        'contractStartDate': contractStartDate,
-        'contractEndDate': contractEndDate,
-        'sponsorshipLevel': sponsorshipLevel,
-        'sponsorshipAmount': sponsorshipAmount,
-        'brandAssetUrl': brandAssetUrl,
-      };
-
-  factory Sponsor.fromMap(Map<String, dynamic> map) {
+  factory Sponsor.fromMap(String id, Map<String, dynamic> data) {
     return Sponsor(
-      name: map['name'] as String,
-      contactPerson: map['contactPerson'] as String,
-      contactEmail: map['contactEmail'] as String,
-      contractStartDate: map['contractStartDate'] as DateTime,
-      contractEndDate: map['contractEndDate'] as DateTime,
-      sponsorshipLevel: map['sponsorshipLevel'] as String,
-      sponsorshipAmount: (map['sponsorshipAmount'] as num).toDouble(),
-      brandAssetUrl: map['brandAssetUrl'] as String?,
-    )..id.id = map['_id'] as ObjectId;
+      id: id,
+      name: data['name'] as String? ?? '',
+      logoUrl: data['logoUrl'] as String?,
+      website: data['website'] as String?,
+      level: SponsorshipLevel.values.firstWhere(
+        (e) => e.name == data['level'],
+        orElse: () => SponsorshipLevel.partner,
+      ),
+      description: data['description'] as String? ?? '',
+      creatorId: data['creatorId'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'logoUrl': logoUrl,
+      'website': website,
+      'level': level.name,
+      'description': description,
+      'creatorId': creatorId,
+    };
   }
 }

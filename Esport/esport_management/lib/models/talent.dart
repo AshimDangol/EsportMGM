@@ -1,36 +1,53 @@
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 enum TalentRole {
-  commentator,
-  host,
+  coach,
   analyst,
-  observer,
+  referee,
+  caster,
+  host,
 }
 
+@immutable
 class Talent {
-  final ObjectId id;
+  final String id;
   final String name;
   final TalentRole role;
-  final String contactEmail;
+  final String? email;
+  final String? twitter;
+  final String creatorId;
 
-  Talent({
+  const Talent({
+    required this.id,
     required this.name,
     required this.role,
-    required this.contactEmail,
-  }) : id = ObjectId();
+    this.email,
+    this.twitter,
+    required this.creatorId,
+  });
 
-  Map<String, dynamic> toMap() => {
-        '_id': id,
-        'name': name,
-        'role': role.toString(),
-        'contactEmail': contactEmail,
-      };
-
-  factory Talent.fromMap(Map<String, dynamic> map) {
+  factory Talent.fromMap(String id, Map<String, dynamic> data) {
     return Talent(
-      name: map['name'] as String,
-      role: TalentRole.values.firstWhere((e) => e.toString() == map['role'], orElse: () => TalentRole.commentator),
-      contactEmail: map['contactEmail'] as String,
-    )..id.id = map['_id'] as ObjectId;
+      id: id,
+      name: data['name'] as String? ?? '',
+      role: TalentRole.values.firstWhere(
+        (e) => e.name == data['role'],
+        orElse: () => TalentRole.caster,
+      ),
+      email: data['email'] as String?,
+      twitter: data['twitter'] as String?,
+      creatorId: data['creatorId'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'role': role.name,
+      'email': email,
+      'twitter': twitter,
+      'creatorId': creatorId,
+    };
   }
 }

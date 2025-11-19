@@ -1,5 +1,6 @@
 import 'package:esport_mgm/models/announcement.dart';
 import 'package:esport_mgm/models/user.dart';
+import 'package:esport_mgm/screens/create_announcement_screen.dart';
 import 'package:esport_mgm/services/announcement_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -40,19 +41,62 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             itemBuilder: (context, index) {
               final announcement = announcements[index];
               return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: ListTile(
-                  title: Text(announcement.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(announcement.content),
-                  trailing: Text(
-                    DateFormat.yMMMd().format(announcement.timestamp.toDate()),
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
+                margin: const EdgeInsets.all(12.0),
+                elevation: 4.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          const CircleAvatar(child: Icon(Icons.person)),
+                          const SizedBox(width: 16.0),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(announcement.authorName, style: Theme.of(context).textTheme.titleMedium),
+                              Text(DateFormat.yMMMd().add_jm().format(announcement.timestamp.toDate()), style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Text(announcement.title, style: Theme.of(context).textTheme.titleLarge),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(announcement.content),
+                    ),
+                    if (announcement.imageUrl != null)
+                      Image.network(announcement.imageUrl!),
+                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        TextButton.icon(icon: const Icon(Icons.thumb_up_outlined), label: const Text('Like'), onPressed: () {}),
+                        TextButton.icon(icon: const Icon(Icons.comment_outlined), label: const Text('Comment'), onPressed: () {}),
+                        TextButton.icon(icon: const Icon(Icons.share_outlined), label: const Text('Share'), onPressed: () {}),
+                      ],
+                    )
+                  ],
                 ),
               );
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => CreateAnnouncementScreen(user: widget.user),
+            ),
+          );
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

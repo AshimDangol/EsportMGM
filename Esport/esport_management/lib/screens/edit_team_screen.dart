@@ -8,83 +8,164 @@ import 'package:flutter/material.dart';
 
 class EditTeamScreen extends StatefulWidget {
   final User user;
-  final Team? team;
+  final String? teamId;
 
-  const EditTeamScreen({super.key, required this.user, this.team});
+  const EditTeamScreen({super.key, required this.user, this.teamId});
 
   @override
   State<EditTeamScreen> createState() => _EditTeamScreenState();
 }
 
 class _EditTeamScreenState extends State<EditTeamScreen> {
-  // ... (state variables)
+  final _formKey = GlobalKey<FormState>();
+  final _teamService = TeamService();
+  final _playerService = PlayerService();
 
-  bool get isEditing => widget.team != null;
+  late Future<Team?> _teamFuture;
+  Team? _team;
 
-  bool get _canEdit {
-    if (widget.user.role == UserRole.admin) {
-      return true;
-    }
-    if (widget.user.role == UserRole.teamManager &&
-        isEditing &&
-        widget.team!.managerId == widget.user.id) {
-      return true;
-    }
-    if (!isEditing && widget.user.role == UserRole.teamManager) {
-      return true; // Can create a new team
-    }
-    return false;
-  }
+  final _nameController = TextEditingController();
+  final _gameController = TextEditingController();
+  final _regionController = TextEditingController();
+
+  List<Player> _selectedPlayers = [];
+
+  bool get _isEditing => widget.teamId != null;
 
   @override
   void initState() {
     super.initState();
-    // ... (rest of initState)
-    // When creating a new team, pre-fill the manager ID with the current user
-    _managerId = widget.team?.managerId ?? widget.user.id;
+    _teamFuture = _isEditing ? _teamService.getTeamById(widget.teamId!) : Future.value(null);
+    _teamFuture.then((team) {
+      if (team != null) {
+        _team = team;
+        _nameController.text = team.name;
+        _gameController.text = team.game;
+        _regionController.text = team.region;
+        _playerService.getPlayersByIds(team.playerIds).then((players) {
+          setState(() {
+            _selectedPlayers = players;
+          });
+        });
+      }
+    });
   }
 
-  // ... (other methods)
+  Future<void> _submit() async {
+    if (_formKey.currentState!.validate()) {
+      final team = Team(
+        id: _isEditing ? widget.teamId! : UniqueKey().toString(),
+        name: _nameController.text,
+        game: _gameController.text,
+        region: _regionController.text,
+        playerIds: _selectedPlayers.map((p) => p.id).toList(),
+        managerId: widget.user.id,
+      );
+
+      if (_isEditing) {
+        await _teamService.updateTeam(team);
+      } else {
+        await _teamService.createTeam(team);
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Team' : 'Create Team'),
-        actions: [
-          if (isEditing && _canEdit)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () { /* ... delete logic ... */ },
-            )
-        ],
+        title: Text(_isEditing ? 'Edit Team' : 'Create Team'),
       ),
-      body: AbsorbPointer(
-        absorbing: !_canEdit,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
+      body: FutureBuilder<Team?>(
+        future: _teamFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ... (form fields)
-                  // The manager ID field should be read-only if the user is a manager
                   TextFormField(
-                    initialValue: _managerId,
-                    readOnly: widget.user.role == UserRole.teamManager,
-                    decoration: const InputDecoration(labelText: 'Manager ID'),
+                    controller: _nameController,
+                    decoration: const InputDecoration(labelText: 'Team Name'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a team name';
+                      }
+                      return null;
+                    },
                   ),
-                  // ... (player list and other widgets)
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _gameController,
+                    decoration: const InputDecoration(labelText: 'Game'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a game';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _regionController,
+                    decoration: const InputDecoration(labelText: 'Region'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a region';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _canEdit ? _saveForm : null,
-                    child: Text(isEditing ? 'Update' : 'Create'),
+                    onPressed: () async {
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => PlayerSelectionScreen(user: widget.user),
+                        ),
+                      );
+                      if (result != null && result is List<Player>) {
+                        setState(() {
+                          _selectedPlayers = result;
+                        });
+                      }
+                    },
+                    child: const Text('Select Players'),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_selectedPlayers.isNotEmpty)
+                    SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        itemCount: _selectedPlayers.length,
+                        itemBuilder: (context, index) {
+                          final player = _selectedPlayers[index];
+                          return ListTile(
+                            title: Text(player.gamerTag),
+                            subtitle: Text(player.realName ?? ''),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _submit,
+                    child: Text(_isEditing ? 'Update Team' : 'Create Team'),
                   ),
                 ],
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

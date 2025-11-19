@@ -1,17 +1,11 @@
-import 'package:collection/collection.dart';
-import 'package:esport_mgm/models/broadcast_schedule.dart';
-import 'package:esport_mgm/models/match.dart';
-import 'package:esport_mgm/models/team.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/tournament.dart';
 import 'package:esport_mgm/models/user.dart';
-import 'package:esport_mgm/screens/match_details_screen.dart';
-import 'package:esport_mgm/screens/revenue_agreement_screen.dart';
-import 'package:esport_mgm/screens/tournament_registration_screen.dart';
-import 'package:esport_mgm/services/broadcast_service.dart';
-import 'package:esport_mgm/services/finance_service.dart';
-import 'package:esport_mgm/services/team_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:math';
 
 class EditTournamentScreen extends StatefulWidget {
   final User user;
@@ -23,175 +17,200 @@ class EditTournamentScreen extends StatefulWidget {
   State<EditTournamentScreen> createState() => _EditTournamentScreenState();
 }
 
-class _EditTournamentScreenState extends State<EditTournamentScreen> with SingleTickerProviderStateMixin {
-  bool get isEditing => widget.tournament != null;
-  Tournament? _currentTournament;
-  late TeamService _teamService;
-  late BroadcastService _broadcastService;
-  late TabController _tabController;
-  Future<List<Team>>? _teamsFuture;
-  Future<List<BroadcastScheduleItem>>? _scheduleFuture;
+class _EditTournamentScreenState extends State<EditTournamentScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final TournamentService _tournamentService = TournamentService();
+
+  // Form fields
+  late String _name;
+  late String _game;
+  late String _description;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String? _venue;
+  double? _prizePool;
+  TournamentFormat _format = TournamentFormat.singleElimination;
+  String? _rules;
+
+  bool get _isEditing => widget.tournament != null;
 
   @override
   void initState() {
     super.initState();
-    _currentTournament = widget.tournament;
-    _teamService = TeamService();
-    _broadcastService = BroadcastService();
-    _tabController = TabController(length: 4, vsync: this);
+    _name = widget.tournament?.name ?? '';
+    _game = widget.tournament?.game ?? '';
+    _description = widget.tournament?.description ?? '';
+    _startDate = widget.tournament?.startDate;
+    _endDate = widget.tournament?.endDate;
+    _venue = widget.tournament?.venue;
+    _prizePool = widget.tournament?.prizePool;
+    _format = widget.tournament?.format ?? TournamentFormat.singleElimination;
+    _rules = widget.tournament?.rules;
+  }
 
-    if (isEditing) {
-      _loadTeams();
-      _loadSchedule();
+  String _generateJoinCode() {
+    final random = Random();
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return String.fromCharCodes(Iterable.generate(
+        6, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
+  }
+
+  Future<void> _pickDate(bool isStartDate) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: (isStartDate ? _startDate : _endDate) ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (date != null) {
+      setState(() {
+        if (isStartDate) {
+          _startDate = date;
+        } else {
+          _endDate = date;
+        }
+      });
     }
   }
 
-  Future<void> _loadTeams() async {
-    setState(() {
-      _teamsFuture = _teamService.getTeamsForTournament(_currentTournament!.id);
-    });
-  }
+  Future<void> _submit() async {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
 
-  Future<void> _loadSchedule() async {
-    setState(() {
-      _scheduleFuture = _broadcastService.getScheduleForTournament(_currentTournament!.id);
-    });
-  }
+      if (_startDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a start date.')),
+        );
+        return;
+      }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+      final tournament = Tournament(
+        id: _isEditing ? widget.tournament!.id : const Uuid().v4(),
+        name: _name,
+        game: _game,
+        description: _description,
+        startDate: _startDate!,
+        endDate: _endDate,
+        venue: _venue,
+        prizePool: _prizePool ?? 0.0,
+        prizeDistribution: _isEditing ? widget.tournament!.prizeDistribution : [],
+        registeredClanIds: _isEditing ? widget.tournament!.registeredClanIds : [],
+        checkedInClanIds: _isEditing ? widget.tournament!.checkedInClanIds : [],
+        format: _format,
+        rules: _rules ?? '',
+        matches: _isEditing ? widget.tournament!.matches : [],
+        seeding: _isEditing ? widget.tournament!.seeding : {},
+        adminId: _isEditing ? widget.tournament!.adminId : widget.user.id,
+        joinCode: _isEditing ? widget.tournament!.joinCode : _generateJoinCode(),
+      );
+
+      if (_isEditing) {
+        await _tournamentService.updateTournament(tournament);
+      } else {
+        await _tournamentService.addTournament(tournament);
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Tournament' : 'Create Tournament'),
-        actions: [/* ... */],
-        bottom: isEditing
-            ? TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Bracket'),
-                  Tab(text: 'Teams'),
-                  Tab(text: 'Finance'),
-                  Tab(text: 'Broadcast'),
+        title: Text(_isEditing ? 'Edit Tournament' : 'Create Tournament'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                initialValue: _name,
+                decoration: const InputDecoration(labelText: 'Tournament Name'),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Please enter a name' : null,
+                onSaved: (value) => _name = value!,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _game,
+                decoration: const InputDecoration(labelText: 'Game'),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Please enter a game' : null,
+                onSaved: (value) => _game = value!,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _description,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 3,
+                onSaved: (value) => _description = value!,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Text('Start: ${_startDate != null ? DateFormat.yMMMd().format(_startDate!) : 'Not set'}'),
+                  ElevatedButton(onPressed: () => _pickDate(true), child: const Text('Select')),
                 ],
-              )
-            : null,
-      ),
-      body: isEditing
-          ? TabBarView(
-              controller: _tabController,
-              children: [
-                _buildBracketView(),
-                _buildRegisteredTeamsView(),
-                _buildFinanceView(),
-                _buildBroadcastScheduleView(),
-              ],
-            )
-          : _buildCreateView(),
-      floatingActionButton: isEditing && _tabController.index == 3
-          ? FloatingActionButton(
-              onPressed: () => _showScheduleItemDialog(),
-              child: const Icon(Icons.add),
-              tooltip: 'Add Schedule Item',
-            )
-          : null,
-    );
-  }
-
-  Widget _buildBroadcastScheduleView() {
-    return FutureBuilder<List<BroadcastScheduleItem>>(
-      future: _scheduleFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        final scheduleItems = snapshot.data ?? [];
-        if (scheduleItems.isEmpty) {
-          return const Center(child: Text('No broadcast schedule yet.'));
-        }
-        return RefreshIndicator(
-          onRefresh: _loadSchedule,
-          child: ListView.builder(
-            itemCount: scheduleItems.length,
-            itemBuilder: (context, index) {
-              final item = scheduleItems[index];
-              return ListTile(
-                title: Text(item.title),
-                subtitle: Text(
-                    '${item.startTime.toLocal()} - ${item.endTime.toLocal()}\nNotes: ${item.notes ?? 'N/A'}'),
-                isThreeLine: true,
-                onTap: () => _showScheduleItemDialog(existingItem: item),
-              );
-            },
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Text('End:   ${_endDate != null ? DateFormat.yMMMd().format(_endDate!) : 'Not set'}'),
+                  ElevatedButton(onPressed: () => _pickDate(false), child: const Text('Select')),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _venue,
+                decoration: const InputDecoration(labelText: 'Venue'),
+                onSaved: (value) => _venue = value,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _prizePool?.toString(),
+                decoration: const InputDecoration(labelText: 'Prize Pool'),
+                keyboardType: TextInputType.number,
+                onSaved: (value) => _prizePool = double.tryParse(value ?? ''),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<TournamentFormat>(
+                value: _format,
+                decoration: const InputDecoration(labelText: 'Format'),
+                items: TournamentFormat.values.map((TournamentFormat format) {
+                  return DropdownMenuItem<TournamentFormat>(
+                    value: format,
+                    child: Text(format.name),
+                  );
+                }).toList(),
+                onChanged: (TournamentFormat? newValue) {
+                  setState(() {
+                    _format = newValue!;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _rules,
+                decoration: const InputDecoration(labelText: 'Rules'),
+                maxLines: 5,
+                onSaved: (value) => _rules = value,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _submit,
+                child: Text(_isEditing ? 'Update Tournament' : 'Create Tournament'),
+              ),
+            ],
           ),
-        );
-      },
-    );
-  }
-
-  void _showScheduleItemDialog({BroadcastScheduleItem? existingItem}) {
-    // This would be a more complex form in a real app
-    final titleController = TextEditingController(text: existingItem?.title);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(existingItem == null ? 'Add Schedule Item' : 'Edit Schedule Item'),
-        content: TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
-        actions: [
-          TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop()),
-          TextButton(
-            child: const Text('Save'),
-            onPressed: () async {
-              final title = titleController.text;
-              if (title.isEmpty) return;
-
-              if (existingItem == null) {
-                final newItem = BroadcastScheduleItem(
-                  tournamentId: _currentTournament!.id,
-                  title: title,
-                  startTime: DateTime.now(), // Placeholder
-                  endTime: DateTime.now().add(const Duration(hours: 1)), // Placeholder
-                );
-                await _broadcastService.addScheduleItem(newItem);
-              } else {
-                final updatedItem = existingItem.copyWith(title: title);
-                await _broadcastService.updateScheduleItem(updatedItem);
-              }
-              Navigator.of(context).pop();
-              _loadSchedule();
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
-
-  Widget _buildRegisteredTeamsView() {
-    return const Center(child: Text('Registered Teams'));
-  }
-
-  Widget _buildCreateView() {
-    return const Center(child: Text('Create Tournament'));
-  }
-
-  Widget _buildFinanceView() {
-    return const Center(child: Text('Finance'));
-  }
-
-  Future<void> _showPrizeDistributionDialog() async { /* ... */ }
-
-  Widget _buildBracketView() {
-    return const Center(child: Text('Bracket'));
-  }
-
-  void _navigateToMatchDetails(Match match) { /* ... */ }
 }

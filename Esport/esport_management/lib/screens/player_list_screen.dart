@@ -1,6 +1,7 @@
 import 'package:esport_mgm/models/player.dart';
 import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/edit_player_screen.dart';
+import 'package:esport_mgm/screens/player_details_screen.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:flutter/material.dart';
 
@@ -15,13 +16,15 @@ class PlayerListScreen extends StatefulWidget {
 class _PlayerListScreenState extends State<PlayerListScreen> {
   final PlayerService _playerService = PlayerService();
 
-  void _navigateToEditScreen([Player? player]) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditPlayerScreen(user: widget.user, player: player),
-      ),
-    );
+  Color _getStatusColor(PlayerStatus status) {
+    switch (status) {
+      case PlayerStatus.active:
+        return Colors.green;
+      case PlayerStatus.inactive:
+        return Colors.orange;
+      case PlayerStatus.banned:
+        return Colors.red;
+    }
   }
 
   @override
@@ -47,16 +50,32 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
             itemBuilder: (context, index) {
               final player = players[index];
               return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: _getStatusColor(player.status),
+                  radius: 8,
+                ),
                 title: Text(player.gamerTag),
                 subtitle: Text(player.realName ?? 'No real name'),
-                onTap: () => _navigateToEditScreen(player),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => PlayerDetailsScreen(player: player, user: widget.user),
+                    ),
+                  );
+                },
               );
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToEditScreen(),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => EditPlayerScreen(user: widget.user),
+            ),
+          );
+        },
         child: const Icon(Icons.add),
       ),
     );

@@ -1,296 +1,279 @@
-import 'package:esport_mgm/models/game_event.dart';
+import 'package:esport_mgm/models/clan.dart';
 import 'package:esport_mgm/models/match.dart';
-import 'package:esport_mgm/models/match_integrity_audit.dart';
-import 'package:esport_mgm/screens/match_integrity_review_screen.dart';
-import 'package:esport_mgm/services/game_event_service.dart';
-import 'package:esport_mgm/services/match_integrity_service.dart';
-import 'package:esport_mgm/services/ranking_service.dart';
+import 'package:esport_mgm/models/player.dart';
+import 'package:esport_mgm/models/player_stats.dart';
+import 'package:esport_mgm/models/tournament.dart';
+import 'package:esport_mgm/models/user.dart';
+import 'package:esport_mgm/services/clan_service.dart';
+import 'package:esport_mgm/services/player_service.dart';
+import 'package:esport_mgm/services/player_stats_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 class MatchDetailsScreen extends StatefulWidget {
   final Match match;
+  final String tournamentId;
 
-  const MatchDetailsScreen({super.key, required this.match});
+  const MatchDetailsScreen({
+    super.key,
+    required this.match,
+    required this.tournamentId,
+  });
 
   @override
   State<MatchDetailsScreen> createState() => _MatchDetailsScreenState();
 }
 
-class _MatchDetailsScreenState extends State<MatchDetailsScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  late MatchIntegrityService _integrityService;
-  late GameEventService _eventService;
-  Future<List<MatchIntegrityAudit>>? _auditsFuture;
-  Future<List<GameEvent>>? _eventsFuture;
+class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
+  final _clanService = ClanService();
+  final _tournamentService = TournamentService();
+  final _playerService = PlayerService();
+  final _playerStatsService = PlayerStatsService();
+  Future<Clan?>? _clan1Future;
+  Future<Clan?>? _clan2Future;
+  late Future<Tournament?> _tournamentFuture;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _integrityService = MatchIntegrityService();
-    _eventService = GameEventService();
-    _loadAudits();
-    _loadEvents();
-  }
-
-  Future<void> _loadAudits() async {
-    setState(() {
-      _auditsFuture = _integrityService.getAuditsForMatch(widget.match.id.toHexString());
-    });
-  }
-
-  Future<void> _loadEvents() async {
-    setState(() {
-      _eventsFuture = _eventService.getEventsForMatch(widget.match.id.toHexString());
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+    if (widget.match.clan1Id != null) {
+      _clan1Future = _clanService.getClanById(widget.match.clan1Id!);
+    }
+    if (widget.match.clan2Id != null) {
+      _clan2Future = _clanService.getClanById(widget.match.clan2Id!);
+    }
+    _tournamentFuture = _tournamentService.getTournamentById(widget.tournamentId);
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = Provider.of<User>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Match ${widget.match.matchNumber}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.gavel),
-            tooltip: 'Conduct Integrity Review',
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MatchIntegrityReviewScreen(matchId: widget.match.id.toHexString()),
-                ),
-              );
-              _loadAudits();
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Score'),
-            Tab(text: 'Event Log'),
-            Tab(text: 'Integrity Audits'),
-          ],
+      ),
+      body: FutureBuilder<Tournament?>(
+        future: _tournamentFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final tournament = snapshot.data;
+          final bool isTournamentAdmin = tournament?.adminId == user.id;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text('Round', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(widget.match.roundNumber.toString(), style: const TextStyle(fontSize: 24)),
+                const SizedBox(height: 20),
+                _buildScoreCard(),
+                const SizedBox(height: 30),
+                if (isTournamentAdmin && widget.match.status != MatchStatus.completed) ...[
+                  ElevatedButton(
+                    onPressed: () => _showUpdateScoreDialog(),
+                    child: const Text('Update Score'),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => _showUpdateStatsDialog(),
+                    child: const Text('Update Player Stats'),
+                  ),
+                ]
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildScoreCard() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildClanDisplay(_clan1Future, widget.match.clan1Score),
+        const Text('VS', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+        _buildClanDisplay(_clan2Future, widget.match.clan2Score),
+      ],
+    );
+  }
+
+  Widget _buildClanDisplay(Future<Clan?>? clanFuture, int score) {
+    return Column(
+      children: [
+        FutureBuilder<Clan?>(
+          future: clanFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(height: 60, width: 60, child: CircularProgressIndicator());
+            }
+            if (!snapshot.hasData || snapshot.data == null) {
+              return const Text('TBD', style: TextStyle(fontSize: 22));
+            }
+            final clan = snapshot.data!;
+            return Column(
+              children: [
+                const Icon(Icons.shield, size: 60, color: Colors.grey),
+                const SizedBox(height: 8),
+                Text(clan.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              ],
+            );
+          },
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          ScoreEditor(match: widget.match),
-          _buildEventLog(),
-          _buildAuditHistory(),
-        ],
-      ),
-      floatingActionButton: _tabController.index == 1
-          ? FloatingActionButton(
-              onPressed: _showAddEventDialog,
-              child: const Icon(Icons.add),
-              tooltip: 'Add Manual Event',
-            )
-          : null,
+        const SizedBox(height: 10),
+        Text(score.toString(), style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 
-  Widget _buildEventLog() {
-    return FutureBuilder<List<GameEvent>>(
-      future: _eventsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error loading events: ${snapshot.error}'));
-        }
-        final events = snapshot.data ?? [];
-        if (events.isEmpty) {
-          return const Center(child: Text('No game events recorded yet.'));
-        }
-        return RefreshIndicator(
-          onRefresh: _loadEvents,
-          child: ListView.builder(
-            itemCount: events.length,
-            itemBuilder: (context, index) {
-              final event = events[index];
-              return ListTile(
-                leading: const Icon(Icons.videogame_asset),
-                title: Text('${event.eventType.toString().split('.').last} by ${event.playerId}'),
-                subtitle: Text('Data: ${event.eventData.toString()}\n${event.timestamp.toLocal()}'),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  void _showAddEventDialog() {
-    final players = [widget.match.team1Id, widget.match.team2Id].where((id) => id != null).toList();
-    if (players.isEmpty) return;
-
-    final randomPlayer = players[Random().nextInt(players.length)]!;
-    final event = GameEvent(
-      matchId: widget.match.id.toHexString(),
-      playerId: randomPlayer,
-      eventType: GameEventType.kill,
-      eventData: {'weapon': 'ManualTest', 'headshot': Random().nextBool()},
-    );
+  void _showUpdateScoreDialog() {
+    final clan1ScoreController = TextEditingController(text: widget.match.clan1Score.toString());
+    final clan2ScoreController = TextEditingController(text: widget.match.clan2Score.toString());
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Manual Event'),
-        content: Text('Add a test KILL event for player $randomPlayer?'),
-        actions: [
-          TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop()),
-          TextButton(
-            child: const Text('Add'),
-            onPressed: () async {
-              await _eventService.recordEvent(event);
-              Navigator.of(context).pop();
-              _loadEvents();
-            },
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Update Score'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FutureBuilder<Clan?>(
+                  future: _clan1Future,
+                  builder: (context, snapshot) {
+                    return TextFormField(
+                      controller: clan1ScoreController,
+                      decoration: InputDecoration(labelText: snapshot.data?.name ?? 'Clan 1 Score'),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      validator: (value) => (value == null || value.isEmpty) ? 'Enter score' : null,
+                    );
+                  },
+                ),
+                FutureBuilder<Clan?>(
+                  future: _clan2Future,
+                  builder: (context, snapshot) {
+                    return TextFormField(
+                      controller: clan2ScoreController,
+                      decoration: InputDecoration(labelText: snapshot.data?.name ?? 'Clan 2 Score'),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      validator: (value) => (value == null || value.isEmpty) ? 'Enter score' : null,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-    );
-  }
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final score1 = int.parse(clan1ScoreController.text);
+                  final score2 = int.parse(clan2ScoreController.text);
 
-  Widget _buildAuditHistory() {
-    return FutureBuilder<List<MatchIntegrityAudit>>(
-      future: _auditsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error loading audits: ${snapshot.error}'));
-        }
-        final audits = snapshot.data ?? [];
-        if (audits.isEmpty) {
-          return const Center(child: Text('No integrity audits for this match.'));
-        }
-        return RefreshIndicator(
-          onRefresh: _loadAudits,
-          child: ListView.builder(
-            itemCount: audits.length,
-            itemBuilder: (context, index) {
-              final audit = audits[index];
-              return ListTile(
-                title: Text('Review by ${audit.reviewerId} on ${audit.timestamp.toLocal()}'),
-                subtitle: Text('Action: ${audit.actionTaken.toString().split('.').last}\nNotes: ${audit.notes}'),
-              );
-            },
-          ),
+                  try {
+                    await _tournamentService.updateMatchScore(
+                      widget.tournamentId,
+                      widget.match.id,
+                      score1,
+                      score2,
+                    );
+                    if (mounted) {
+                      Navigator.pop(context); // Close the dialog
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Score updated successfully!')),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to update score: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         );
       },
     );
   }
-}
 
-class ScoreEditor extends StatefulWidget {
-  final Match match;
+  void _showUpdateStatsDialog() async {
+    final clan1 = await _clan1Future;
+    final clan2 = await _clan2Future;
+    if (clan1 == null || clan2 == null) return;
 
-  const ScoreEditor({super.key, required this.match});
+    final clan1Players = await _playerService.getPlayersByClan(clan1.id);
+    final clan2Players = await _playerService.getPlayersByClan(clan2.id);
 
-  @override
-  _ScoreEditorState createState() => _ScoreEditorState();
-}
+    final allPlayers = [...clan1Players, ...clan2Players];
 
-class _ScoreEditorState extends State<ScoreEditor> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _team1ScoreController;
-  late final TextEditingController _team2ScoreController;
-  late final TournamentService _tournamentService;
-  late final RankingService _rankingService;
-
-  @override
-  void initState() {
-    super.initState();
-    _team1ScoreController = TextEditingController(text: widget.match.team1Score.toString());
-    _team2ScoreController = TextEditingController(text: widget.match.team2Score.toString());
-    _tournamentService = TournamentService();
-    _rankingService = RankingService();
-  }
-
-  @override
-  void dispose() {
-    _team1ScoreController.dispose();
-    _team2ScoreController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _updateScore() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final team1Score = int.parse(_team1ScoreController.text);
-    final team2Score = int.parse(_team2ScoreController.text);
-
-    try {
-      // First, update the match score in the tournament
-      await _tournamentService.updateMatchScore(
-        widget.match.id.toHexString(), // This seems incorrect, review tournament_service
-        widget.match.id.toHexString(),
-        team1Score,
-        team2Score,
-      );
-
-      // Then, update the rankings based on the result
-      final updatedMatch = widget.match.copyWith(
-        team1Score: team1Score,
-        team2Score: team2Score,
-        winnerId: team1Score > team2Score ? widget.match.team1Id : widget.match.team2Id,
-        status: MatchStatus.completed,
-      );
-      await _rankingService.updatePostMatchStats(updatedMatch);
-
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Score updated successfully!')));
-      Navigator.pop(context, true); // Pop with a result to indicate success
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update score: $e')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('${widget.match.team1Id ?? 'TBD'} vs ${widget.match.team2Id ?? 'TBD'}',
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _team1ScoreController,
-              decoration: InputDecoration(labelText: 'Score - ${widget.match.team1Id ?? 'Team 1'}'),
-              keyboardType: TextInputType.number,
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Update Player Stats'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: allPlayers.map((player) => _buildPlayerStatInputs(player)).toList(),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _team2ScoreController,
-              decoration: InputDecoration(labelText: 'Score - ${widget.match.team2Id ?? 'Team 2'}'),
-              keyboardType: TextInputType.number,
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 32),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: _updateScore,
-              child: const Text('Save Final Score'),
+              onPressed: () async {
+                // In a real app, you would get the stats from the controllers
+                final statsMap = <String, PlayerStats>{};
+                await _playerStatsService.updateStatsForPlayers(statsMap);
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Player stats updated!')),
+                  );
+                }
+              },
+              child: const Text('Save All'),
             ),
           ],
-        ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlayerStatInputs(Player player) {
+    // In a real app, you would have controllers for these fields
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(player.gamerTag, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Expanded(child: TextFormField(decoration: const InputDecoration(labelText: 'Kills'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextFormField(decoration: const InputDecoration(labelText: 'Deaths'))),
+              const SizedBox(width: 8),
+              Expanded(child: TextFormField(decoration: const InputDecoration(labelText: 'Assists'))),
+            ],
+          ),
+        ],
       ),
     );
   }
