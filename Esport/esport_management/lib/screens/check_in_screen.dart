@@ -3,35 +3,25 @@ import 'package:esport_mgm/models/tournament.dart';
 import 'package:esport_mgm/services/clan_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class CheckInScreen extends StatefulWidget {
-  final String tournamentId;
-  const CheckInScreen({super.key, required this.tournamentId});
+  final Tournament tournament;
+  const CheckInScreen({super.key, required this.tournament});
 
   @override
   State<CheckInScreen> createState() => _CheckInScreenState();
 }
 
 class _CheckInScreenState extends State<CheckInScreen> {
-  final _tournamentService = TournamentService();
-  final _clanService = ClanService();
-
-  late Future<Tournament?> _tournamentFuture;
   Future<List<Clan>>? _registeredClansFuture;
   Set<String> _checkedInClanIds = {};
 
   @override
   void initState() {
     super.initState();
-    _tournamentFuture = _tournamentService.getTournamentById(widget.tournamentId);
-    _tournamentFuture.then((tournament) {
-      if (tournament != null) {
-        setState(() {
-          _checkedInClanIds = Set<String>.from(tournament.checkedInClanIds);
-          _registeredClansFuture = _clanService.getClansByIds(tournament.registeredClanIds);
-        });
-      }
-    });
+    _checkedInClanIds = Set<String>.from(widget.tournament.checkedInClanIds);
+    _registeredClansFuture = context.read<ClanService>().getClansByIds(widget.tournament.registeredClanIds);
   }
 
   Future<void> _onCheckInChanged(String clanId, bool isCheckedIn) async {
@@ -42,7 +32,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
         _checkedInClanIds.remove(clanId);
       }
     });
-    await _tournamentService.setClanCheckInStatus(widget.tournamentId, clanId, isCheckedIn);
+    await context.read<TournamentService>().setClanCheckInStatus(widget.tournament.id, clanId, isCheckedIn);
   }
 
   @override

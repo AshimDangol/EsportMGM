@@ -9,6 +9,7 @@ class Clan {
   final String ownerId;
   final List<String> memberIds;
   final Map<String, PlayerRole> roles; // Maps userId to their role in the clan
+  final List<String> teamIds;
 
   const Clan({
     required this.id,
@@ -17,6 +18,7 @@ class Clan {
     required this.ownerId,
     this.memberIds = const [],
     this.roles = const {},
+    this.teamIds = const [],
   });
 
   factory Clan.fromMap(String id, Map<String, dynamic> data) {
@@ -29,6 +31,7 @@ class Clan {
       roles: (data['roles'] as Map<String, dynamic>? ?? {}).map(
         (key, value) => MapEntry(key, PlayerRole.values.firstWhere((e) => e.name == value, orElse: () => PlayerRole.flex)),
       ),
+      teamIds: List<String>.from(data['teamIds'] ?? []),
     );
   }
 
@@ -39,6 +42,7 @@ class Clan {
       'ownerId': ownerId,
       'memberIds': memberIds,
       'roles': roles.map((key, value) => MapEntry(key, value.name)),
+      'teamIds': teamIds,
     };
   }
 }

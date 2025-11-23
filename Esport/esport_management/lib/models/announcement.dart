@@ -9,6 +9,7 @@ class Announcement {
   final Timestamp timestamp;
   final String authorName;
   final String? imageUrl;
+  final String authorId;
 
   const Announcement({
     required this.id,
@@ -17,6 +18,7 @@ class Announcement {
     required this.timestamp,
     required this.authorName,
     this.imageUrl,
+    required this.authorId,
   });
 
   factory Announcement.fromMap(String id, Map<String, dynamic> map) {
@@ -27,6 +29,7 @@ class Announcement {
       timestamp: map['timestamp'] as Timestamp? ?? Timestamp.now(),
       authorName: map['authorName'] as String? ?? 'Anonymous',
       imageUrl: map['imageUrl'] as String?,
+      authorId: map['authorId'] as String? ?? '',
     );
   }
 
@@ -37,6 +40,7 @@ class Announcement {
       'timestamp': timestamp,
       'authorName': authorName,
       'imageUrl': imageUrl,
+      'authorId': authorId,
     };
   }
 }

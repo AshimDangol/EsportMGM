@@ -4,6 +4,7 @@ import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:math';
 
@@ -19,7 +20,6 @@ class EditTournamentScreen extends StatefulWidget {
 
 class _EditTournamentScreenState extends State<EditTournamentScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TournamentService _tournamentService = TournamentService();
 
   // Form fields
   late String _name;
@@ -84,6 +84,8 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
         return;
       }
 
+      final tournamentService = context.read<TournamentService>();
+
       final tournament = Tournament(
         id: _isEditing ? widget.tournament!.id : const Uuid().v4(),
         name: _name,
@@ -105,9 +107,9 @@ class _EditTournamentScreenState extends State<EditTournamentScreen> {
       );
 
       if (_isEditing) {
-        await _tournamentService.updateTournament(tournament);
+        await tournamentService.updateTournament(tournament);
       } else {
-        await _tournamentService.addTournament(tournament);
+        await tournamentService.addTournament(tournament);
       }
 
       if (mounted) {

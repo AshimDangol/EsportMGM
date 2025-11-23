@@ -9,7 +9,7 @@ class FirestoreService {
   Future<void> createUser(String uid, String email) async {
     return _firestore.collection('users').doc(uid).set({
       'email': email,
-      'role': UserRole.viewer.name, // Default role
+      'role': UserRole.admin.name, // Default role
       'theme': 'system',
     });
   }
@@ -35,6 +35,17 @@ class FirestoreService {
 
   Future<List<User>> getAllUsers() async {
     final snapshot = await _firestore.collection('users').get();
+    return snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList();
+  }
+
+  Future<List<User>> searchUsers(String query) async {
+    if (query.isEmpty) return [];
+    final snapshot = await _firestore
+        .collection('users')
+        .where('email', isGreaterThanOrEqualTo: query)
+        .where('email', isLessThan: query + 'z')
+        .limit(10) // Limit results for performance
+        .get();
     return snapshot.docs.map((doc) => User.fromMap(doc.id, doc.data())).toList();
   }
 

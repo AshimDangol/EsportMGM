@@ -1,7 +1,10 @@
 import 'package:esport_mgm/models/tournament.dart';
+import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
 class CreateTournamentScreen extends StatefulWidget {
   const CreateTournamentScreen({super.key});
@@ -49,6 +52,14 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
   }
 
   Future<void> _createTournament() async {
+    final user = context.read<User?>();
+    if (user?.role != UserRole.tournament_organizer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You do not have permission to create tournaments.')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -64,21 +75,26 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
       final prizePool = double.tryParse(_prizePoolController.text) ?? 0.0;
       final rules = _rulesController.text;
 
-      await _tournamentService.createTournament(
-        name,
-        game,
-        _selectedDate,
-        description,
-        prizePool,
-        _selectedFormat,
-        rules,
+      final newTournament = Tournament(
+        id: const Uuid().v4(),
+        name: name,
+        game: game,
+        startDate: _selectedDate,
+        description: description,
+        prizePool: prizePool,
+        format: _selectedFormat,
+        rules: rules,
+        adminId: user!.id,
+        joinCode: (const Uuid().v4()).substring(0, 6).toUpperCase(),
       );
+
+      await _tournamentService.addTournament(newTournament);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tournament Created!')),
         );
-        Navigator.pop(context, true); // Pass true to indicate success
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {

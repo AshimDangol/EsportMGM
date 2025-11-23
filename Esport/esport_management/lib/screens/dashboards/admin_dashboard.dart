@@ -1,8 +1,10 @@
 import 'package:esport_mgm/models/user.dart';
+import 'package:esport_mgm/screens/clan_list_screen.dart';
 import 'package:esport_mgm/services/clan_service.dart';
 import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class AdminDashboard extends StatefulWidget {
   final User user;
@@ -13,10 +15,6 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  final FirestoreService _firestoreService = FirestoreService();
-  final ClanService _clanService = ClanService();
-  final TournamentService _tournamentService = TournamentService();
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,6 +34,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildStatsGrid() {
+    final firestoreService = context.read<FirestoreService>();
+    final clanService = context.read<ClanService>();
+    final tournamentService = context.read<TournamentService>();
+
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -43,9 +45,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       children: [
-        _buildStatCard('Total Users', _firestoreService.getAllUsers().then((u) => u.length)),
-        _buildStatCard('Total Clans', _clanService.getAllClans().then((c) => c.length)),
-        _buildStatCard('Ongoing Tournaments', _tournamentService.getAllTournaments().then((t) => t.length)),
+        _buildStatCard('Total Users', firestoreService.getAllUsers().then((u) => u.length)),
+        InkWell(
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => ClanListScreen(user: widget.user))),
+          child: _buildStatCard('Clans', clanService.getAllClans().then((c) => c.length)),
+        ),
+        _buildStatCard('Ongoing Tournaments', tournamentService.getAllTournaments().then((t) => t.length)),
       ],
     );
   }
@@ -76,7 +81,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildOngoingTournaments() {
-    return FutureBuilder(builder: (context, snapshot) {
+    return FutureBuilder(
+      future: Future.value(null),
+      builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return const Center(child: CircularProgressIndicator());
       }

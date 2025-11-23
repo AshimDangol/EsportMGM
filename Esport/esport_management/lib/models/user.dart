@@ -2,10 +2,9 @@ import 'package:flutter/foundation.dart';
 
 // Roles as defined in the feature list
 enum UserRole {
-  admin,       // Full control
-  coach,       // Coach/Manager
-  player,      // Player
-  viewer,      // Viewer/Fan (Default)
+  admin,       // Full control (Default)
+  tournament_organizer,
+  clan_leader,
 }
 
 @immutable
@@ -14,12 +13,16 @@ class User {
   final String email;
   final UserRole role;
   final String theme;
+  final String? photoUrl;
+  final List<String> friendIds;
 
   const User({
     required this.id,
     required this.email,
-    this.role = UserRole.viewer, // Default role is Viewer
+    this.role = UserRole.admin, // Default role is Admin
     this.theme = 'system',
+    this.photoUrl,
+    this.friendIds = const [],
   });
 
   factory User.fromMap(String id, Map<String, dynamic> map) {
@@ -28,17 +31,21 @@ class User {
       email: map['email'] as String? ?? '',
       role: UserRole.values.firstWhere(
         (e) => e.name == map['role'],
-        orElse: () => UserRole.viewer, // Safely default to viewer
+        orElse: () => UserRole.admin, // Safely default to admin
       ),
       theme: map['theme'] as String? ?? 'system',
+      photoUrl: map['photoUrl'] as String?,
+      friendIds: List<String>.from(map['friendIds'] ?? []),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'email': email,
-      'role': role.name, // Store the role as a string (e.g., 'admin')
+      'role': role.name, // Store the role as a string
       'theme': theme,
+      'photoUrl': photoUrl,
+      'friendIds': friendIds,
     };
   }
 
@@ -47,12 +54,16 @@ class User {
     String? email,
     UserRole? role,
     String? theme,
+    String? photoUrl,
+    List<String>? friendIds,
   }) {
     return User(
       id: id ?? this.id,
       email: email ?? this.email,
       role: role ?? this.role,
       theme: theme ?? this.theme,
+      photoUrl: photoUrl ?? this.photoUrl,
+      friendIds: friendIds ?? this.friendIds,
     );
   }
 }

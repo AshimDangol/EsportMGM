@@ -8,6 +8,7 @@ import 'package:esport_mgm/services/clan_service.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:esport_mgm/services/player_stats_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
+import 'package:esport_mgm/widgets/player_stat_input_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -27,24 +28,35 @@ class MatchDetailsScreen extends StatefulWidget {
 }
 
 class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
-  final _clanService = ClanService();
-  final _tournamentService = TournamentService();
-  final _playerService = PlayerService();
-  final _playerStatsService = PlayerStatsService();
   Future<Clan?>? _clan1Future;
   Future<Clan?>? _clan2Future;
   late Future<Tournament?> _tournamentFuture;
+  final Map<String, PlayerStats> _statsMap = {};
 
   @override
   void initState() {
     super.initState();
+    final clanService = context.read<ClanService>();
     if (widget.match.clan1Id != null) {
-      _clan1Future = _clanService.getClanById(widget.match.clan1Id!);
+      _clan1Future = clanService.getClanById(widget.match.clan1Id!);
     }
     if (widget.match.clan2Id != null) {
-      _clan2Future = _clanService.getClanById(widget.match.clan2Id!);
+      _clan2Future = clanService.getClanById(widget.match.clan2Id!);
     }
-    _tournamentFuture = _tournamentService.getTournamentById(widget.tournamentId);
+    _tournamentFuture = context.read<TournamentService>().getTournamentById(widget.tournamentId);
+  }
+
+  void _refresh() {
+    final clanService = context.read<ClanService>();
+    setState(() {
+      if (widget.match.clan1Id != null) {
+        _clan1Future = clanService.getClanById(widget.match.clan1Id!);
+      }
+      if (widget.match.clan2Id != null) {
+        _clan2Future = clanService.getClanById(widget.match.clan2Id!);
+      }
+      _tournamentFuture = context.read<TournamentService>().getTournamentById(widget.tournamentId);
+    });
   }
 
   @override
@@ -183,12 +195,13 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
                   final score2 = int.parse(clan2ScoreController.text);
 
                   try {
-                    await _tournamentService.updateMatchScore(
+                    await context.read<TournamentService>().updateMatchScore(
                       widget.tournamentId,
                       widget.match.id,
                       score1,
                       score2,
                     );
+                    _refresh();
                     if (mounted) {
                       Navigator.pop(context); // Close the dialog
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -217,8 +230,9 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
     final clan2 = await _clan2Future;
     if (clan1 == null || clan2 == null) return;
 
-    final clan1Players = await _playerService.getPlayersByClan(clan1.id);
-    final clan2Players = await _playerService.getPlayersByClan(clan2.id);
+    final playerService = context.read<PlayerService>();
+    final clan1Players = await playerService.getPlayersByClan(clan1.id);
+    final clan2Players = await playerService.getPlayersByClan(clan2.id);
 
     final allPlayers = [...clan1Players, ...clan2Players];
 
@@ -230,16 +244,22 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: allPlayers.map((player) => _buildPlayerStatInputs(player)).toList(),
+              children: allPlayers
+                  .map((player) => PlayerStatInputRow(
+                        player: player,
+                        onStatsChanged: (stats) {
+                          _statsMap[player.id] = stats;
+                        },
+                      ))
+                  .toList(),
             ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
-                // In a real app, you would get the stats from the controllers
-                final statsMap = <String, PlayerStats>{};
-                await _playerStatsService.updateStatsForPlayers(statsMap);
+                final playerStatsService = context.read<PlayerStatsService>();
+                await playerStatsService.updateStatsForPlayers(_statsMap);
 
                 if (mounted) {
                   Navigator.pop(context);
@@ -253,28 +273,6 @@ class _MatchDetailsScreenState extends State<MatchDetailsScreen> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildPlayerStatInputs(Player player) {
-    // In a real app, you would have controllers for these fields
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(player.gamerTag, style: const TextStyle(fontWeight: FontWeight.bold)),
-          Row(
-            children: [
-              Expanded(child: TextFormField(decoration: const InputDecoration(labelText: 'Kills'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextFormField(decoration: const InputDecoration(labelText: 'Deaths'))),
-              const SizedBox(width: 8),
-              Expanded(child: TextFormField(decoration: const InputDecoration(labelText: 'Assists'))),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

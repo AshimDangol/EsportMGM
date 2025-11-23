@@ -1,10 +1,12 @@
 import 'package:esport_mgm/models/tournament.dart';
 import 'package:esport_mgm/models/user.dart';
+import 'package:esport_mgm/screens/create_tournament_screen.dart';
 import 'package:esport_mgm/screens/edit_tournament_screen.dart';
 import 'package:esport_mgm/screens/join_tournament_screen.dart';
 import 'package:esport_mgm/screens/tournament_details_screen.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class TournamentListScreen extends StatefulWidget {
   final User user;
@@ -15,18 +17,17 @@ class TournamentListScreen extends StatefulWidget {
 }
 
 class _TournamentListScreenState extends State<TournamentListScreen> {
-  final TournamentService _tournamentService = TournamentService();
   late Future<List<Tournament>> _tournamentsFuture;
 
   @override
   void initState() {
     super.initState();
-    _tournamentsFuture = _tournamentService.getAllTournaments();
+    _tournamentsFuture = context.read<TournamentService>().getAllTournaments();
   }
 
   void _refreshTournaments() {
     setState(() {
-      _tournamentsFuture = _tournamentService.getAllTournaments();
+      _tournamentsFuture = context.read<TournamentService>().getAllTournaments();
     });
   }
 
@@ -39,14 +40,17 @@ class _TournamentListScreenState extends State<TournamentListScreen> {
     );
   }
 
-  void _navigateToEditScreen([Tournament? tournament]) async {
-    await Navigator.push(
+  void _navigateToCreateScreen() async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => EditTournamentScreen(user: widget.user, tournament: tournament),
+        builder: (context) => const CreateTournamentScreen(),
       ),
     );
-    _refreshTournaments(); // Refresh the list after returning
+
+    if (result == true) {
+      _refreshTournaments();
+    }
   }
 
   void _navigateAndJoinTournament() async {
@@ -72,7 +76,20 @@ class _TournamentListScreenState extends State<TournamentListScreen> {
     );
 
     if (confirm == true) {
-      await _tournamentService.deleteTournament(tournament.id);
+      await context.read<TournamentService>().deleteTournament(tournament.id);
+      _refreshTournaments();
+    }
+  }
+
+  void _navigateToEditScreen(Tournament tournament) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditTournamentScreen(tournament: tournament, user: widget.user),
+      ),
+    );
+
+    if (result == true) {
       _refreshTournaments();
     }
   }
@@ -131,7 +148,7 @@ class _TournamentListScreenState extends State<TournamentListScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToEditScreen(),
+        onPressed: _navigateToCreateScreen,
         child: const Icon(Icons.add),
       ),
     );

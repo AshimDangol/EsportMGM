@@ -5,12 +5,14 @@ import 'package:esport_mgm/screens/player_selection_screen.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:esport_mgm/services/team_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class EditTeamScreen extends StatefulWidget {
   final User user;
+  final String clanId;
   final String? teamId;
 
-  const EditTeamScreen({super.key, required this.user, this.teamId});
+  const EditTeamScreen({super.key, required this.user, required this.clanId, this.teamId});
 
   @override
   State<EditTeamScreen> createState() => _EditTeamScreenState();
@@ -18,15 +20,13 @@ class EditTeamScreen extends StatefulWidget {
 
 class _EditTeamScreenState extends State<EditTeamScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _teamService = TeamService();
-  final _playerService = PlayerService();
 
   late Future<Team?> _teamFuture;
   Team? _team;
 
   final _nameController = TextEditingController();
   final _gameController = TextEditingController();
-  final _regionController = TextEditingController();
+  Region _selectedRegion = Region.global;
 
   List<Player> _selectedPlayers = [];
 
@@ -35,37 +35,44 @@ class _EditTeamScreenState extends State<EditTeamScreen> {
   @override
   void initState() {
     super.initState();
-    _teamFuture = _isEditing ? _teamService.getTeamById(widget.teamId!) : Future.value(null);
-    _teamFuture.then((team) {
-      if (team != null) {
-        _team = team;
-        _nameController.text = team.name;
-        _gameController.text = team.game;
-        _regionController.text = team.region;
-        _playerService.getPlayersByIds(team.playerIds).then((players) {
-          setState(() {
-            _selectedPlayers = players;
+    if (_isEditing) {
+      _teamFuture = context.read<TeamService>().getTeamById(widget.teamId!);
+      _teamFuture.then((team) {
+        if (team != null) {
+          _team = team;
+          _nameController.text = team.name;
+          _gameController.text = team.game;
+          _selectedRegion = team.region;
+          context.read<PlayerService>().getPlayersByIds(team.players).then((players) {
+            setState(() {
+              _selectedPlayers = players;
+            });
           });
-        });
-      }
-    });
+        }
+      });
+    } else {
+      _teamFuture = Future.value(null);
+    }
   }
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
+      final teamService = context.read<TeamService>();
+
       final team = Team(
         id: _isEditing ? widget.teamId! : UniqueKey().toString(),
         name: _nameController.text,
         game: _gameController.text,
-        region: _regionController.text,
-        playerIds: _selectedPlayers.map((p) => p.id).toList(),
+        region: _selectedRegion,
+        players: _selectedPlayers.map((p) => p.id).toList(),
         managerId: widget.user.id,
+        clanId: _isEditing ? _team!.clanId : widget.clanId,
       );
 
       if (_isEditing) {
-        await _teamService.updateTeam(team);
+        await teamService.updateTeam(team);
       } else {
-        await _teamService.createTeam(team);
+        await teamService.createTeam(team);
       }
 
       if (mounted) {
@@ -83,7 +90,7 @@ class _EditTeamScreenState extends State<EditTeamScreen> {
       body: FutureBuilder<Team?>(
         future: _teamFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting && _isEditing) {
             return const Center(child: CircularProgressIndicator());
           }
           return SingleChildScrollView(
@@ -115,14 +122,19 @@ class _EditTeamScreenState extends State<EditTeamScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _regionController,
+                  DropdownButtonFormField<Region>(
+                    value: _selectedRegion,
                     decoration: const InputDecoration(labelText: 'Region'),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter a region';
-                      }
-                      return null;
+                    items: Region.values.map((Region region) {
+                      return DropdownMenuItem<Region>(
+                        value: region,
+                        child: Text(region.name),
+                      );
+                    }).toList(),
+                    onChanged: (Region? newValue) {
+                      setState(() {
+                        _selectedRegion = newValue!;
+                      });
                     },
                   ),
                   const SizedBox(height: 24),

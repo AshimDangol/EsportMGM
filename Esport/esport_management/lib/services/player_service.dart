@@ -2,10 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/player.dart';
 
 class PlayerService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
   late final CollectionReference<Map<String, dynamic>> _collection;
 
-  PlayerService() {
+  PlayerService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance {
     _collection = _firestore.collection('players');
   }
 
@@ -42,9 +43,8 @@ class PlayerService {
   }
 
   Future<List<Player>> getPlayersByClan(String clanId) async {
-    // This is a placeholder. In a real app, you would have a 'clanId' field in your player documents.
-    // For now, we will return all players.
-    return getPlayers();
+    final snapshot = await _collection.where('clanId', isEqualTo: clanId).get();
+    return snapshot.docs.map((doc) => Player.fromMap(doc.data(), doc.id)).toList();
   }
 
   Stream<List<Player>> getPlayersStream() {

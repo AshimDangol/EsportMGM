@@ -6,11 +6,19 @@ import 'package:esport_mgm/models/tournament.dart';
 import 'package:esport_mgm/services/db_exception.dart';
 
 class TournamentService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
   late final CollectionReference<Map<String, dynamic>> _collection;
 
-  TournamentService() {
+  TournamentService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance {
     _collection = _firestore.collection('tournaments');
+  }
+
+  String _generateJoinCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    return String.fromCharCodes(Iterable.generate(
+        6, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
   }
 
   Future<void> addTournament(Tournament tournament) async {

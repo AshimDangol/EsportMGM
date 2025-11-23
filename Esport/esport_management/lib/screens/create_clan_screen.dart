@@ -2,6 +2,7 @@ import 'package:esport_mgm/models/clan.dart';
 import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/services/clan_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 class CreateClanScreen extends StatefulWidget {
@@ -28,6 +29,14 @@ class _CreateClanScreenState extends State<CreateClanScreen> {
   }
 
   Future<void> _createClan() async {
+    final user = context.read<User?>();
+    if (user?.role != UserRole.clan_leader) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You do not have permission to create clans.')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }

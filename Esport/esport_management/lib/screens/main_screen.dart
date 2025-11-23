@@ -1,5 +1,6 @@
 import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/announcements_screen.dart';
+import 'package:esport_mgm/screens/friend_list_screen.dart';
 import 'package:esport_mgm/screens/home_dashboard_screen.dart';
 import 'package:esport_mgm/screens/settings_screen.dart';
 import 'package:esport_mgm/screens/tournament_list_screen.dart';
@@ -24,6 +25,7 @@ class _MainScreenState extends State<MainScreen> {
     _widgetOptions = <Widget>[
       HomeDashboardScreen(user: widget.user),
       AnnouncementsScreen(user: widget.user),
+      FriendListScreen(currentUser: widget.user),
       TournamentListScreen(user: widget.user),
       SettingsScreen(user: widget.user),
     ];
@@ -50,6 +52,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.feed),
             label: 'Feed',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Friends',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.emoji_events),

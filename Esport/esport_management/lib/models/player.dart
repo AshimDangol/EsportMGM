@@ -15,6 +15,8 @@ class Player {
   final String? realName;
   final String? nationality;
   final PlayerStatus status;
+  final String? clanId;
+  final List<String> favoriteGames;
 
   const Player({
     required this.id,
@@ -23,6 +25,8 @@ class Player {
     this.realName,
     this.nationality,
     this.status = PlayerStatus.active,
+    this.clanId,
+    this.favoriteGames = const [],
   });
 
   Player copyWith({
@@ -32,6 +36,8 @@ class Player {
     String? realName,
     String? nationality,
     PlayerStatus? status,
+    String? clanId,
+    List<String>? favoriteGames,
   }) {
     return Player(
       id: id ?? this.id,
@@ -40,6 +46,8 @@ class Player {
       realName: realName ?? this.realName,
       nationality: nationality ?? this.nationality,
       status: status ?? this.status,
+      clanId: clanId ?? this.clanId,
+      favoriteGames: favoriteGames ?? this.favoriteGames,
     );
   }
 
@@ -54,6 +62,8 @@ class Player {
         (e) => e.toString() == data['status'],
         orElse: () => PlayerStatus.active,
       ),
+      clanId: data['clanId'] as String?,
+      favoriteGames: List<String>.from(data['favoriteGames'] ?? []),
     );
   }
 
@@ -69,6 +79,8 @@ class Player {
         (e) => e.toString() == data['status'],
         orElse: () => PlayerStatus.active,
       ),
+      clanId: data['clanId'] as String?,
+      favoriteGames: List<String>.from(data['favoriteGames'] ?? []),
     );
   }
 
@@ -79,34 +91,40 @@ class Player {
       'realName': realName,
       'nationality': nationality,
       'status': status.toString(),
+      'clanId': clanId,
+      'favoriteGames': favoriteGames,
     };
   }
 
   @override
   String toString() {
-    return 'Player(id: $id, userId: $userId, gamerTag: $gamerTag, realName: $realName, nationality: $nationality, status: $status)';
+    return 'Player(id: $id, userId: $userId, gamerTag: $gamerTag, realName: $realName, nationality: $nationality, status: $status, clanId: $clanId, favoriteGames: $favoriteGames)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-
+  
     return other is Player &&
-        other.id == id &&
-        other.userId == userId &&
-        other.gamerTag == gamerTag &&
-        other.realName == realName &&
-        other.nationality == nationality &&
-        other.status == status;
+      other.id == id &&
+      other.userId == userId &&
+      other.gamerTag == gamerTag &&
+      other.realName == realName &&
+      other.nationality == nationality &&
+      other.status == status &&
+      other.clanId == clanId &&
+      listEquals(other.favoriteGames, favoriteGames);
   }
 
   @override
   int get hashCode {
     return id.hashCode ^
-        userId.hashCode ^
-        gamerTag.hashCode ^
-        realName.hashCode ^
-        nationality.hashCode ^
-        status.hashCode;
+      userId.hashCode ^
+      gamerTag.hashCode ^
+      realName.hashCode ^
+      nationality.hashCode ^
+      status.hashCode ^
+      clanId.hashCode ^
+      favoriteGames.hashCode;
   }
 }

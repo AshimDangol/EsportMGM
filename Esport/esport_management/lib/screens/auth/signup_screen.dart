@@ -1,4 +1,5 @@
 import 'package:esport_mgm/services/authentication_service.dart';
+import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -29,13 +30,18 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _isLoading = true);
 
     final authService = context.read<AuthenticationService>();
+    final firestoreService = context.read<FirestoreService>();
     final result = await authService.signUp(
       email: _emailController.text,
       password: _passwordController.text,
     );
 
-    if (result == "Signed up" && mounted) {
-      Navigator.pop(context); // Go back to the login screen after successful signup
+    if (result == "Signed up") {
+      final user = authService.getCurrentUser();
+      if (user != null) {
+        await firestoreService.createUser(user.uid, user.email!);
+      }
+      if (mounted) Navigator.pop(context); // Go back to the login screen
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result ?? 'An unknown error occurred.')),
@@ -45,7 +51,7 @@ class _SignupScreenState extends State<SignupScreen> {
     if (mounted) setState(() => _isLoading = false);
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(

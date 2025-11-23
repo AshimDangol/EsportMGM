@@ -3,6 +3,7 @@ import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 class EditPlayerScreen extends StatefulWidget {
@@ -17,17 +18,13 @@ class EditPlayerScreen extends StatefulWidget {
 
 class _EditPlayerScreenState extends State<EditPlayerScreen> {
   final _formKey = GlobalKey<FormState>();
-  final PlayerService _playerService = PlayerService();
-  final FirestoreService _firestoreService = FirestoreService();
 
   late String _gamerTag;
   String? _realName;
   String? _nationality;
-  UserRole _selectedRole = UserRole.player; // Default role for new players
   PlayerStatus _selectedStatus = PlayerStatus.active;
 
   bool get _isEditing => widget.player != null;
-  bool get _isAdmin => widget.user.role == UserRole.admin;
 
   @override
   void initState() {
@@ -36,35 +33,17 @@ class _EditPlayerScreenState extends State<EditPlayerScreen> {
     _realName = widget.player?.realName;
     _nationality = widget.player?.nationality;
     _selectedStatus = widget.player?.status ?? PlayerStatus.active;
-    // When editing, we should fetch the user's current role
-    if (_isEditing) {
-      _firestoreService.getUser(widget.player!.userId).then((user) {
-        if (user != null) {
-          setState(() {
-            _selectedRole = user.role;
-          });
-        }
-      });
-    }
   }
 
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      String targetUserId;
-      if (_isEditing) {
-        targetUserId = widget.player!.userId;
-      } else {
-        // Create a new user for the new player
-        targetUserId = const Uuid().v4();
-        // You should have a more robust way of creating users, this is a simplification
-        await _firestoreService.createUser(targetUserId, '${_gamerTag.toLowerCase().replaceAll(' ', '.')}@email.com');
-      }
+      final playerService = context.read<PlayerService>();
 
       final player = Player(
         id: _isEditing ? widget.player!.id : const Uuid().v4(),
-        userId: targetUserId,
+        userId: widget.user.id,
         gamerTag: _gamerTag,
         realName: _realName,
         nationality: _nationality,
@@ -72,14 +51,9 @@ class _EditPlayerScreenState extends State<EditPlayerScreen> {
       );
 
       if (_isEditing) {
-        await _playerService.updatePlayer(player);
+        await playerService.updatePlayer(player);
       } else {
-        await _playerService.addPlayer(player);
-      }
-
-      // Update the user's role
-      if (_isAdmin) {
-        await _firestoreService.updateUserRole(targetUserId, _selectedRole);
+        await playerService.addPlayer(player);
       }
 
       if (mounted) {
@@ -124,40 +98,6 @@ class _EditPlayerScreenState extends State<EditPlayerScreen> {
                 decoration: const InputDecoration(labelText: 'Nationality'),
                 onSaved: (value) => _nationality = value,
               ),
-              if (_isAdmin) ...[
-                const SizedBox(height: 24),
-                DropdownButtonFormField<UserRole>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(labelText: 'Assign Role'),
-                  items: UserRole.values.map((UserRole role) {
-                    return DropdownMenuItem<UserRole>(
-                      value: role,
-                      child: Text(role.name),
-                    );
-                  }).toList(),
-                  onChanged: (UserRole? newValue) {
-                    setState(() {
-                      _selectedRole = newValue!;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<PlayerStatus>(
-                  value: _selectedStatus,
-                  decoration: const InputDecoration(labelText: 'Player Status'),
-                  items: PlayerStatus.values.map((PlayerStatus status) {
-                    return DropdownMenuItem<PlayerStatus>(
-                      value: status,
-                      child: Text(status.name),
-                    );
-                  }).toList(),
-                  onChanged: (PlayerStatus? newValue) {
-                    setState(() {
-                      _selectedStatus = newValue!;
-                    });
-                  },
-                ),
-              ],
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _submit,

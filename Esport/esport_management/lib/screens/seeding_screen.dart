@@ -3,6 +3,7 @@ import 'package:esport_mgm/models/tournament.dart';
 import 'package:esport_mgm/services/clan_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class SeedingScreen extends StatefulWidget {
   final String tournamentId;
@@ -13,8 +14,6 @@ class SeedingScreen extends StatefulWidget {
 }
 
 class _SeedingScreenState extends State<SeedingScreen> {
-  final _tournamentService = TournamentService();
-  final _clanService = ClanService();
   Map<String, int> _seeding = {};
   List<Clan> _clans = [];
   bool _isLoading = true;
@@ -22,25 +21,40 @@ class _SeedingScreenState extends State<SeedingScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSeedingData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSeedingData();
+    });
   }
 
   Future<void> _loadSeedingData() async {
-    final tournament = await _tournamentService.getTournamentById(widget.tournamentId);
+    final tournamentService =
+        Provider.of<TournamentService>(context, listen: false);
+    final clanService = Provider.of<ClanService>(context, listen: false);
+    final tournament =
+        await tournamentService.getTournamentById(widget.tournamentId);
     if (tournament != null) {
-      _clanService.getClansByIds(tournament.checkedInClanIds).then((clans) {
+      final clans = await clanService.getClansByIds(tournament.checkedInClanIds);
+      if (mounted) {
         setState(() {
           _clans = clans;
           _seeding = Map<String, int>.from(tournament.seeding);
           _isLoading = false;
         });
-      });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _saveSeeding() async {
+    final tournamentService =
+        Provider.of<TournamentService>(context, listen: false);
     try {
-      await _tournamentService.updateSeeding(widget.tournamentId, _seeding);
+      await tournamentService.updateSeeding(widget.tournamentId, _seeding);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Seeding saved!')),

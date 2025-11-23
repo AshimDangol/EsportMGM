@@ -1,38 +1,30 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/ticket.dart';
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:uuid/uuid.dart';
 
 class TicketService {
-  static const String _collection = 'tickets';
-  final Db _db;
+  final FirebaseFirestore _firestore;
+  late final CollectionReference<Map<String, dynamic>> _collection;
 
-  TicketService(this._db);
+  TicketService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance {
+    _collection = _firestore.collection('tickets');
+  }
 
-  DbCollection get ticketCollection => _db.collection(_collection);
-
-  Future<Ticket> issueTicket(String tournamentId, String userId) async {
-    final ticket = Ticket(tournamentId: tournamentId, userId: userId);
-    await ticketCollection.insert(ticket.toMap());
-    return ticket;
+  Future<void> purchaseTicket(String eventId, String userId, String ticketType, double price) async {
+    final ticket = Ticket(
+      id: const Uuid().v4(),
+      eventId: eventId,
+      userId: userId,
+      ticketType: ticketType,
+      price: price,
+      createdAt: Timestamp.now(),
+    );
+    await _collection.doc(ticket.id).set(ticket.toMap());
   }
 
   Future<List<Ticket>> getTicketsForUser(String userId) async {
-    final docs = await ticketCollection.find(where.eq('userId', userId)).toList();
-    return docs.map((doc) => Ticket.fromMap(doc)).toList();
-  }
-
-  Future<Ticket?> getTicketById(String ticketId) async {
-    final doc = await ticketCollection.findOne(where.id(ObjectId.parse(ticketId)));
-    return doc == null ? null : Ticket.fromMap(doc);
-  }
-
-  Future<bool> checkInTicket(String ticketId) async {
-    final result = await ticketCollection.updateOne(
-      where.id(ObjectId.parse(ticketId)).and(where.eq('status', TicketStatus.valid.toString())),
-      modify
-          .set('status', TicketStatus.checkedIn.toString())
-          .set('checkInDate', DateTime.now()),
-    );
-
-    return result.nModified == 1;
+    final snapshot = await _collection.where('userId', isEqualTo: userId).get();
+    return snapshot.docs.map((doc) => Ticket.fromMap(doc.id, doc.data())).toList();
   }
 }

@@ -4,26 +4,27 @@ import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/check_in_screen.dart';
 import 'package:esport_mgm/screens/match_details_screen.dart';
 import 'package:esport_mgm/screens/seeding_screen.dart';
+import 'package:esport_mgm/screens/ticketing/ticket_purchase_screen.dart';
 import 'package:esport_mgm/services/clan_service.dart';
 import 'package:esport_mgm/services/tournament_service.dart';
 import 'package:esport_mgm/widgets/bracket_view.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class TournamentDetailsScreen extends StatefulWidget {
   final String tournamentId;
   final User user;
 
-  const TournamentDetailsScreen({super.key, required this.tournamentId, required this.user});
+  const TournamentDetailsScreen(
+      {super.key, required this.tournamentId, required this.user});
 
   @override
-  State<TournamentDetailsScreen> createState() => _TournamentDetailsScreenState();
+  State<TournamentDetailsScreen> createState() =>
+      _TournamentDetailsScreenState();
 }
 
 class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
-  final _clanService = ClanService();
-  final _tournamentService = TournamentService();
-
   late Future<Tournament?> _tournamentFuture;
 
   @override
@@ -33,7 +34,8 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
   }
 
   void _loadTournamentData() {
-    _tournamentFuture = _tournamentService.getTournamentById(widget.tournamentId);
+    _tournamentFuture =
+        context.read<TournamentService>().getTournamentById(widget.tournamentId);
   }
 
   void _refreshTournament() {
@@ -44,7 +46,9 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
 
   Future<void> _generateBracket() async {
     try {
-      await _tournamentService.generateBracket(widget.tournamentId);
+      await context
+          .read<TournamentService>()
+          .generateBracket(widget.tournamentId);
       _refreshTournament();
     } catch (e) {
       if (mounted) {
@@ -68,7 +72,8 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('Tournament not found or failed to load.'));
+            return const Center(
+                child: Text('Tournament not found or failed to load.'));
           }
 
           final tournament = snapshot.data!;
@@ -87,23 +92,48 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(tournament.name, style: Theme.of(context).textTheme.headlineMedium),
+                          Text(tournament.name,
+                              style: Theme.of(context).textTheme.headlineMedium),
                           const SizedBox(height: 16),
-                          Text('Game: ${tournament.game}', style: const TextStyle(fontSize: 18)),
+                          Text('Game: ${tournament.game}',
+                              style: const TextStyle(fontSize: 18)),
                           const SizedBox(height: 10),
-                          Text('Date: ${DateFormat.yMMMEd().format(tournament.startDate.toLocal())}'),
+                          Text(
+                              'Date: ${DateFormat.yMMMEd().format(tournament.startDate.toLocal())}'),
                           const SizedBox(height: 10),
                           Text('Venue: ${tournament.venue ?? 'Online'}'),
                           const SizedBox(height: 10),
-                          Text('Prize Pool: \$${tournament.prizePool.toStringAsFixed(2)}'),
+                          Text(
+                              'Prize Pool: \$${tournament.prizePool.toStringAsFixed(2)}'),
                           const SizedBox(height: 10),
                           Text('Format: ${tournament.format.name}'),
                           const SizedBox(height: 10),
                           Text('Description: ${tournament.description}'),
                           const SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: () => _showRulesDialog(tournament.rules),
-                            child: const Text('View Rules'),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              ElevatedButton(
+                                onPressed: () =>
+                                    _showRulesDialog(tournament.rules),
+                                child: const Text('View Rules'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          TicketPurchaseScreen(
+                                        tournament: tournament,
+                                        user: widget.user,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Buy Tickets'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -117,28 +147,68 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (isUserAdmin && tournament.matches.isEmpty)
-                            ElevatedButton(
-                              onPressed: _generateBracket,
-                              child: const Text('Generate Bracket'),
+                          if (isUserAdmin)
+                            Wrap(
+                              spacing: 8.0,
+                              runSpacing: 4.0,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            CheckInScreen(tournament: tournament),
+                                      ),
+                                    ).then((_) => _refreshTournament());
+                                  },
+                                  child: const Text('Manage Check-ins'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => SeedingScreen(
+                                            tournamentId: tournament.id),
+                                      ),
+                                    ).then((_) => _refreshTournament());
+                                  },
+                                  child: const Text('Manage Seeding'),
+                                ),
+                                if (tournament.matches.isEmpty)
+                                  ElevatedButton(
+                                    onPressed: _generateBracket,
+                                    child: const Text('Generate Bracket'),
+                                  ),
+                              ],
                             ),
                           const SizedBox(height: 20),
-                          const Text('Bracket', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Text('Bracket',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
                           BracketView(
                             matches: tournament.matches,
                             tournamentId: tournament.id,
                             onMatchTapped: (match) {
                               Navigator.of(context).push(MaterialPageRoute(
-                                builder: (context) => MatchDetailsScreen(match: match, tournamentId: tournament.id),
+                                builder: (context) => MatchDetailsScreen(
+                                    match: match, tournamentId: tournament.id),
                               ));
                             },
                           ),
                           const SizedBox(height: 20),
-                          const Text('Registered Clans:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          _buildClansList(tournament.registeredClanIds, 'No clans have registered yet.'),
+                          const Text('Registered Clans:',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          _buildClansList(tournament.registeredClanIds,
+                              'No clans have registered yet.'),
                           const SizedBox(height: 20),
-                          const Text('Checked-in Clans:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          _buildClansList(tournament.checkedInClanIds, 'No clans have checked in yet.'),
+                          const Text('Checked-in Clans:',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          _buildClansList(tournament.checkedInClanIds,
+                              'No clans have checked in yet.'),
                         ],
                       ),
                     ),
@@ -159,7 +229,9 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
         title: const Text('Tournament Rules'),
         content: SingleChildScrollView(child: Text(rules)),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close')),
         ],
       ),
     );
@@ -174,21 +246,27 @@ class _TournamentDetailsScreenState extends State<TournamentDetailsScreen> {
     }
 
     return FutureBuilder<List<Clan>>(
-      future: _clanService.getClansByIds(clanIds),
+      future: context.read<ClanService>().getClansByIds(clanIds),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(padding: EdgeInsets.only(top: 8.0), child: CircularProgressIndicator());
+          return const Padding(
+              padding: EdgeInsets.only(top: 8.0),
+              child: CircularProgressIndicator());
         }
         if (snapshot.hasError || !snapshot.hasData) {
-          return const Padding(padding: EdgeInsets.only(top: 8.0), child: Text('Could not load clans.'));
+          return const Padding(
+              padding: EdgeInsets.only(top: 8.0),
+              child: Text('Could not load clans.'));
         }
         final clans = snapshot.data!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: clans.map((clan) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0),
-            child: Text(clan.name, style: const TextStyle(fontSize: 16)),
-          )).toList(),
+          children: clans
+              .map((clan) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Text(clan.name, style: const TextStyle(fontSize: 16)),
+                  ))
+              .toList(),
         );
       },
     );

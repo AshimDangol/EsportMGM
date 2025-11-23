@@ -17,6 +17,7 @@ class Team {
   final int eloRating;
   final List<String> players;
   final String managerId;
+  final String clanId;
 
   const Team({
     required this.id,
@@ -26,6 +27,7 @@ class Team {
     this.eloRating = 1200,
     this.players = const [],
     required this.managerId,
+    required this.clanId,
   });
 
   factory Team.fromMap(Map<String, dynamic> data, String documentId) {
@@ -37,6 +39,7 @@ class Team {
       eloRating: data['elo_rating'] ?? 1200,
       players: List<String>.from(data['players'] ?? []),
       managerId: data['managerId'] ?? '',
+      clanId: data['clanId'] ?? '',
     );
   }
 
@@ -48,6 +51,7 @@ class Team {
       'elo_rating': eloRating,
       'players': players,
       'managerId': managerId,
+      'clanId': clanId,
     };
   }
 
@@ -59,6 +63,7 @@ class Team {
     int? eloRating,
     List<String>? players,
     String? managerId,
+    String? clanId,
   }) {
     return Team(
       id: id ?? this.id,
@@ -68,12 +73,13 @@ class Team {
       eloRating: eloRating ?? this.eloRating,
       players: players ?? this.players,
       managerId: managerId ?? this.managerId,
+      clanId: clanId ?? this.clanId,
     );
   }
 
   @override
   String toString() {
-    return 'Team(id: $id, name: $name, game: $game, region: $region, eloRating: $eloRating, players: $players, managerId: $managerId)';
+    return 'Team(id: $id, name: $name, game: $game, region: $region, eloRating: $eloRating, players: $players, managerId: $managerId, clanId: $clanId)';
   }
 
   @override
@@ -87,7 +93,8 @@ class Team {
       other.region == region &&
       other.eloRating == eloRating &&
       listEquals(other.players, players) &&
-      other.managerId == managerId;
+      other.managerId == managerId &&
+      other.clanId == clanId;
   }
 
   @override
@@ -98,6 +105,7 @@ class Team {
       region.hashCode ^
       eloRating.hashCode ^
       players.hashCode ^
-      managerId.hashCode;
+      managerId.hashCode ^
+      clanId.hashCode;
   }
 }

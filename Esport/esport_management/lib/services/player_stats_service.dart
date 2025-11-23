@@ -2,10 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/player_stats.dart';
 
 class PlayerStatsService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
   late final CollectionReference<Map<String, dynamic>> _collection;
 
-  PlayerStatsService() {
+  PlayerStatsService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance {
     _collection = _firestore.collection('player_stats');
   }
 

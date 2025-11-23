@@ -1,6 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esport_mgm/models/user.dart' as model;
 import 'package:esport_mgm/screens/main_screen.dart';
+import 'package:esport_mgm/services/announcement_service.dart';
+import 'package:esport_mgm/services/chat_service.dart';
+import 'package:esport_mgm/services/clan_service.dart';
+import 'package:esport_mgm/services/friend_service.dart';
+import 'package:esport_mgm/services/player_service.dart';
+import 'package:esport_mgm/services/player_stats_service.dart';
+import 'package:esport_mgm/services/team_service.dart';
+import 'package:esport_mgm/services/ticket_service.dart';
+import 'package:esport_mgm/services/tournament_service.dart';
+import 'package:esport_mgm/services/training_service.dart';
+import 'package:esport_mgm/services/user_service.dart';
 import 'package:esport_mgm/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,9 +21,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:esport_mgm/firebase_options.dart';
 import 'package:esport_mgm/screens/auth/login_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
 
   try {
     await Firebase.initializeApp(
@@ -44,6 +57,39 @@ class MyApp extends StatelessWidget {
         ),
         Provider<FirestoreService>(
           create: (_) => FirestoreService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<ClanService>(
+          create: (_) => ClanService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<TournamentService>(
+          create: (_) => TournamentService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<PlayerStatsService>(
+          create: (_) => PlayerStatsService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<UserService>(
+          create: (_) => UserService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<TrainingService>(
+          create: (_) => TrainingService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<TeamService>(
+          create: (_) => TeamService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<PlayerService>(
+          create: (_) => PlayerService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<AnnouncementService>(
+          create: (_) => AnnouncementService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<TicketService>(
+          create: (_) => TicketService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<FriendService>(
+          create: (_) => FriendService(firestore: FirebaseFirestore.instance),
+        ),
+        Provider<ChatService>(
+          create: (_) => ChatService(firestore: FirebaseFirestore.instance),
         ),
       ],
       child: ValueListenableBuilder<ThemeMode>(

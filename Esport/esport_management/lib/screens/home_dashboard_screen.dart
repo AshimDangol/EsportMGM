@@ -1,6 +1,5 @@
 import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/dashboards/admin_dashboard.dart';
-import 'package:esport_mgm/screens/dashboards/player_dashboard.dart';
 import 'package:flutter/material.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
@@ -9,16 +8,15 @@ class HomeDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Since all users are admins by default, we can simplify this.
+    // We will keep the switch statement in case you add more specific roles back later.
     switch (user.role) {
       case UserRole.admin:
+      case UserRole.tournament_organizer:
+      case UserRole.clan_leader:
         return AdminDashboard(user: user);
-      case UserRole.player:
-      case UserRole.coach:
-        return PlayerDashboard(user: user);
       default:
-        // For viewers and other roles, you might want a more general dashboard
-        // or simply show the player dashboard as a default.
-        return PlayerDashboard(user: user);
+        return AdminDashboard(user: user);
     }
   }
 }

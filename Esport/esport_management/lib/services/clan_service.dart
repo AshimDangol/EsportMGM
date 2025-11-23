@@ -3,10 +3,11 @@ import 'package:esport_mgm/models/clan.dart';
 import 'package:esport_mgm/models/player_role.dart';
 
 class ClanService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
   late final CollectionReference<Map<String, dynamic>> _collection;
 
-  ClanService() {
+  ClanService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance {
     _collection = _firestore.collection('clans');
   }
 

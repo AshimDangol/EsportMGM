@@ -1,29 +1,28 @@
+import 'dart:io';
+
 import 'package:esport_mgm/models/announcement.dart';
 import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/create_announcement_screen.dart';
 import 'package:esport_mgm/services/announcement_service.dart';
+import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
-class AnnouncementsScreen extends StatefulWidget {
+class AnnouncementsScreen extends StatelessWidget {
   final User user;
   const AnnouncementsScreen({super.key, required this.user});
 
   @override
-  State<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
-}
-
-class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
-  final AnnouncementService _announcementService = AnnouncementService();
-
-  @override
   Widget build(BuildContext context) {
+    final announcementService = context.watch<AnnouncementService>();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Feed'),
+        title: const Text('Announcements'),
       ),
       body: StreamBuilder<List<Announcement>>(
-        stream: _announcementService.getAnnouncementsStream(),
+        stream: announcementService.getAnnouncementsStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -31,72 +30,118 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-          final announcements = snapshot.data ?? [];
-          if (announcements.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text('No announcements yet.'));
           }
 
+          final announcements = snapshot.data!;
+
           return ListView.builder(
+            padding: const EdgeInsets.all(8.0),
             itemCount: announcements.length,
             itemBuilder: (context, index) {
               final announcement = announcements[index];
-              return Card(
-                margin: const EdgeInsets.all(12.0),
-                elevation: 4.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          const CircleAvatar(child: Icon(Icons.person)),
-                          const SizedBox(width: 16.0),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(announcement.authorName, style: Theme.of(context).textTheme.titleMedium),
-                              Text(DateFormat.yMMMd().add_jm().format(announcement.timestamp.toDate()), style: Theme.of(context).textTheme.bodySmall),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text(announcement.title, style: Theme.of(context).textTheme.titleLarge),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(announcement.content),
-                    ),
-                    if (announcement.imageUrl != null)
-                      Image.network(announcement.imageUrl!),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        TextButton.icon(icon: const Icon(Icons.thumb_up_outlined), label: const Text('Like'), onPressed: () {}),
-                        TextButton.icon(icon: const Icon(Icons.comment_outlined), label: const Text('Comment'), onPressed: () {}),
-                        TextButton.icon(icon: const Icon(Icons.share_outlined), label: const Text('Share'), onPressed: () {}),
-                      ],
-                    )
-                  ],
-                ),
-              );
+              return AnnouncementCard(announcement: announcement);
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).push(
+          Navigator.push(
+            context,
             MaterialPageRoute(
-              builder: (context) => CreateAnnouncementScreen(user: widget.user),
+              builder: (context) => CreateAnnouncementScreen(user: user),
             ),
           );
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class AnnouncementCard extends StatelessWidget {
+  final Announcement announcement;
+
+  const AnnouncementCard({super.key, required this.announcement});
+
+  Widget _buildImage(String imageUrl) {
+    // A simple check to see if the URL is a local path.
+    // This might need to be more robust in a real application.
+    bool isLocal = !imageUrl.startsWith('http');
+    if (isLocal) {
+      return Image.file(File(imageUrl));
+    } else {
+      return Image.network(imageUrl);
+    }
+  }
+
+  ImageProvider _getAvatarImage(String? photoUrl) {
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      if (!photoUrl.startsWith('http')) {
+        return FileImage(File(photoUrl));
+      }
+      return NetworkImage(photoUrl);
+    }
+    return const AssetImage('assets/images/default_avatar.png'); // A default asset image
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firestoreService = context.read<FirestoreService>();
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FutureBuilder<User?>(
+              future: firestoreService.getUserStream(announcement.authorId).first,
+              builder: (context, snapshot) {
+                final user = snapshot.data;
+                return Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundImage: _getAvatarImage(user?.photoUrl),
+                      child: (user?.photoUrl == null || user!.photoUrl!.isEmpty)
+                          ? const Icon(Icons.person, size: 24)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(announcement.authorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(
+                          DateFormat.yMMMd().add_jm().format(announcement.timestamp.toDate()),
+                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            Text(announcement.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(announcement.content, style: const TextStyle(fontSize: 15)),
+            if (announcement.imageUrl != null && announcement.imageUrl!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: _buildImage(announcement.imageUrl!),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -1,13 +1,15 @@
 import 'package:esport_mgm/models/team.dart';
 import 'package:esport_mgm/models/user.dart';
-import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:esport_mgm/services/team_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 class CreateTeamScreen extends StatefulWidget {
   final User user;
-  const CreateTeamScreen({super.key, required this.user});
+  final String clanId;
+
+  const CreateTeamScreen({super.key, required this.user, required this.clanId});
 
   @override
   State<CreateTeamScreen> createState() => _CreateTeamScreenState();
@@ -15,11 +17,9 @@ class CreateTeamScreen extends StatefulWidget {
 
 class _CreateTeamScreenState extends State<CreateTeamScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _teamService = TeamService();
-  final _firestoreService = FirestoreService();
   final _nameController = TextEditingController();
   final _gameController = TextEditingController();
-  final _regionController = TextEditingController();
+  Region _selectedRegion = Region.global;
 
   bool _isLoading = false;
 
@@ -27,7 +27,6 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
   void dispose() {
     _nameController.dispose();
     _gameController.dispose();
-    _regionController.dispose();
     super.dispose();
   }
 
@@ -45,15 +44,11 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         id: const Uuid().v4(),
         name: _nameController.text,
         game: _gameController.text,
-        region: _regionController.text,
+        region: _selectedRegion,
         managerId: widget.user.id,
-        playerIds: [],
+        clanId: widget.clanId,
       );
-      await _teamService.createTeam(team);
-
-      if (widget.user.role == UserRole.spectator) {
-        await _firestoreService.updateUserRole(widget.user.id, UserRole.teamManager);
-      }
+      await context.read<TeamService>().createTeam(team);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -111,14 +106,19 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _regionController,
+              DropdownButtonFormField<Region>(
+                value: _selectedRegion,
                 decoration: const InputDecoration(labelText: 'Region'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a region';
-                  }
-                  return null;
+                items: Region.values.map((Region region) {
+                  return DropdownMenuItem<Region>(
+                    value: region,
+                    child: Text(region.name),
+                  );
+                }).toList(),
+                onChanged: (Region? newValue) {
+                  setState(() {
+                    _selectedRegion = newValue!;
+                  });
                 },
               ),
               const SizedBox(height: 24),
