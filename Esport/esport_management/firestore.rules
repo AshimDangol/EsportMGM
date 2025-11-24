@@ -3,64 +3,71 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the requesting user is a Tournament Organizer.
-    function isTournamentOrganizer(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'tournament_organizer';
+    // Helper Functions for checking roles within a clan
+    function isClanOwner(clanId) {
+      return request.auth.uid == get(/databases/$(database)/documents/clans/$(clanId)).data.ownerId;
     }
 
-    // Helper function to check if the requesting user is a Clan Leader.
-    function isClanLeader(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'clan_leader';
+    function isClanCoAdmin(clanId) {
+      return request.auth.uid in get(/databases/$(database)/documents/clans/$(clanId)).data.coAdminIds;
     }
 
     // Rules for the 'users' collection
     match /users/{userId} {
-      // Any authenticated user can read, create, and update their own user document.
-      allow read, create, update: if request.auth != null;
-      // No user can delete their own account.
-      allow delete: if false;
-    }
-
-    // Rules for 'announcements'
-    match /announcements/{announcementId} {
-      // Any authenticated user can read, create, update, and delete announcements.
-      allow read, write: if request.auth != null;
-    }
-
-    // Rules for 'players' and 'teams'
-    match /players/{playerId} {
-      allow read, write: if request.auth != null;
-    }
-
-    match /teams/{teamId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Rules for 'clans'
-    match /clans/{clanId} {
-      allow read, create, update: if request.auth != null;
-      // Only a Clan Leader can delete a clan.
-      allow delete: if isClanLeader(request.auth.uid);
-    }
-
-    // Rules for 'tournaments'
-    match /tournaments/{tournamentId} {
-      allow read, create, update: if request.auth != null;
-      // Only a Tournament Organizer can delete a tournament.
-      allow delete: if isTournamentOrganizer(request.auth.uid);
-    }
-
-    // Rules for 'matches'
-    match /matches/{matchId} {
       allow read: if request.auth != null;
-      // Only Tournament Organizers can create, update, or delete matches.
-      allow write: if isTournamentOrganizer(request.auth.uid);
+      allow create: if request.auth.uid == userId;
+      // Users can only update their own profile, and they cannot change their friend list directly through this rule.
+      allow update: if request.auth.uid == userId && !('friendIds' in request.resource.data);
     }
 
-    // General collections are open to all authenticated users.
-    // Consider adding more specific rules if your app requires them.
-    match /{collection}/{docId} {
-      allow read, write: if request.auth != null;
+    // Rules for the 'announcements' collection
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth.uid == resource.data.authorId;
+    }
+
+    // Rules for the 'clans' collection
+    match /clans/{clanId} {
+      allow read, create: if request.auth != null;
+      allow delete: if isClanOwner(clanId);
+      
+      // Detailed update rules for clans
+      allow update: if 
+        // The Owner can change anything.
+        isClanOwner(clanId) ||
+        // A Co-Admin can manage members and requests, but cannot change the owner or privacy.
+        (isClanCoAdmin(clanId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'privacy'])) ||
+        // Any authenticated user can request to join a private clan.
+        (request.auth != null && resource.data.privacy == 'private' && request.resource.data.pendingMemberIds.hasAll(resource.data.pendingMemberIds.concat([request.auth.uid]))) ||
+        // Any authenticated user can join a public clan.
+        (request.auth != null && resource.data.privacy == 'public' && request.resource.data.memberIds.hasAll(resource.data.memberIds.concat([request.auth.uid])));
+    }
+
+    // Rules for the 'teams' collection
+    match /teams/{teamId} {
+      allow read: if request.auth != null;
+      // Only the owner of the associated clan can create, update, or delete a team.
+      allow create: if isClanOwner(request.resource.data.clanId);
+      allow update, delete: if isClanOwner(resource.data.clanId);
+    }
+
+    // Rules for the 'tournaments' collection
+    match /tournaments/{tournamentId} {
+      allow read, create: if request.auth != null;
+      // Only the tournament admin can update or delete it.
+      allow update, delete: if request.auth.uid == resource.data.adminId;
+    }
+
+    // Rules for the 'players' collection
+    match /players/{playerId} {
+       allow read: if request.auth != null;
+       // A user can only manage their own player profile.
+       allow create, update, delete: if request.auth.uid == request.resource.data.userId;
+    }
+
+    // Default catch-all rule: Disallow all reads/writes to any other collection
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

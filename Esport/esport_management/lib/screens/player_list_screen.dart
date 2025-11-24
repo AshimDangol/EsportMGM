@@ -4,6 +4,7 @@ import 'package:esport_mgm/screens/edit_player_screen.dart';
 import 'package:esport_mgm/screens/player_details_screen.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class PlayerListScreen extends StatefulWidget {
   final User user;
@@ -14,7 +15,24 @@ class PlayerListScreen extends StatefulWidget {
 }
 
 class _PlayerListScreenState extends State<PlayerListScreen> {
-  final PlayerService _playerService = PlayerService();
+  final _searchController = TextEditingController();
+  Future<List<Player>>? _playersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _playersFuture = context.read<PlayerService>().getPlayers();
+  }
+
+  void _searchPlayers(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _playersFuture = context.read<PlayerService>().getPlayers();
+      } else {
+        _playersFuture = context.read<PlayerService>().searchPlayers(query);
+      }
+    });
+  }
 
   Color _getStatusColor(PlayerStatus status) {
     switch (status) {
@@ -27,55 +45,86 @@ class _PlayerListScreenState extends State<PlayerListScreen> {
     }
   }
 
+  void _navigateToDetails(Player player) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PlayerDetailsScreen(player: player, user: widget.user),
+      ),
+    );
+  }
+
+  void _navigateToCreate() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditPlayerScreen(user: widget.user),
+      ),
+    );
+    _searchPlayers(_searchController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Players'),
       ),
-      body: StreamBuilder<List<Player>>(
-        stream: _playerService.getPlayersStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No players found.'));
-          }
-
-          final players = snapshot.data!;
-          return ListView.builder(
-            itemCount: players.length,
-            itemBuilder: (context, index) {
-              final player = players[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: _getStatusColor(player.status),
-                  radius: 8,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search by GamerTag or ID',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                title: Text(player.gamerTag),
-                subtitle: Text(player.realName ?? 'No real name'),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => PlayerDetailsScreen(player: player, user: widget.user),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
+              ),
+              onChanged: _searchPlayers,
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Player>>(
+              future: _playersFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                final players = snapshot.data ?? [];
+                if (players.isEmpty) {
+                  return const Center(child: Text('No players found.'));
+                }
+
+                return ListView.builder(
+                  itemCount: players.length,
+                  itemBuilder: (context, index) {
+                    final player = players[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: _getStatusColor(player.status),
+                          radius: 8,
+                        ),
+                        title: Text(player.gamerTag),
+                        subtitle: Text(player.realName ?? 'No real name'),
+                        onTap: () => _navigateToDetails(player),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => EditPlayerScreen(user: widget.user),
-            ),
-          );
-        },
+        onPressed: _navigateToCreate,
+        tooltip: 'Add Player',
         child: const Icon(Icons.add),
       ),
     );

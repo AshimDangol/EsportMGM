@@ -53,12 +53,6 @@ class _CreateTournamentScreenState extends State<CreateTournamentScreen> {
 
   Future<void> _createTournament() async {
     final user = context.read<User?>();
-    if (user?.role != UserRole.tournament_organizer) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You do not have permission to create tournaments.')),
-      );
-      return;
-    }
 
     if (!_formKey.currentState!.validate()) {
       return;

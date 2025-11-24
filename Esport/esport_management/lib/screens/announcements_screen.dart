@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:esport_mgm/models/announcement.dart';
+import 'package:esport_mgm/models/player.dart';
 import 'package:esport_mgm/models/user.dart';
 import 'package:esport_mgm/screens/create_announcement_screen.dart';
 import 'package:esport_mgm/services/announcement_service.dart';
 import 'package:esport_mgm/services/firestore_service.dart';
+import 'package:esport_mgm/services/player_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -67,8 +69,6 @@ class AnnouncementCard extends StatelessWidget {
   const AnnouncementCard({super.key, required this.announcement});
 
   Widget _buildImage(String imageUrl) {
-    // A simple check to see if the URL is a local path.
-    // This might need to be more robust in a real application.
     bool isLocal = !imageUrl.startsWith('http');
     if (isLocal) {
       return Image.file(File(imageUrl));
@@ -84,12 +84,14 @@ class AnnouncementCard extends StatelessWidget {
       }
       return NetworkImage(photoUrl);
     }
-    return const AssetImage('assets/images/default_avatar.png'); // A default asset image
+    // In a real app, you would have a default avatar image in your assets.
+    return const Icon(Icons.person).toString() as ImageProvider;
   }
 
   @override
   Widget build(BuildContext context) {
     final firestoreService = context.read<FirestoreService>();
+    final playerService = context.read<PlayerService>();
 
     return Card(
       elevation: 4,
@@ -102,8 +104,8 @@ class AnnouncementCard extends StatelessWidget {
           children: [
             FutureBuilder<User?>(
               future: firestoreService.getUserStream(announcement.authorId).first,
-              builder: (context, snapshot) {
-                final user = snapshot.data;
+              builder: (context, userSnapshot) {
+                final user = userSnapshot.data;
                 return Row(
                   children: [
                     CircleAvatar(
@@ -117,7 +119,16 @@ class AnnouncementCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(announcement.authorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        FutureBuilder<Player?>(
+                          future: playerService.getPlayerByUserId(announcement.authorId),
+                          builder: (context, playerSnapshot) {
+                            String displayName = announcement.authorName; // Default to email
+                            if (playerSnapshot.connectionState == ConnectionState.done && playerSnapshot.hasData) {
+                              displayName = playerSnapshot.data!.gamerTag;
+                            }
+                            return Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16));
+                          },
+                        ),
                         Text(
                           DateFormat.yMMMd().add_jm().format(announcement.timestamp.toDate()),
                           style: const TextStyle(color: Colors.grey, fontSize: 12),

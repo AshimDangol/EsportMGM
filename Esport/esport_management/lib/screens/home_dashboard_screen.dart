@@ -8,15 +8,7 @@ class HomeDashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Since all users are admins by default, we can simplify this.
-    // We will keep the switch statement in case you add more specific roles back later.
-    switch (user.role) {
-      case UserRole.admin:
-      case UserRole.tournament_organizer:
-      case UserRole.clan_leader:
-        return AdminDashboard(user: user);
-      default:
-        return AdminDashboard(user: user);
-    }
+    // Since there are no global roles, all users will see the main dashboard.
+    return AdminDashboard(user: user);
   }
 }

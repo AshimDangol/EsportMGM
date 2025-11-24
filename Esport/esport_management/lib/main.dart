@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:esport_mgm/models/player.dart';
 import 'package:esport_mgm/models/user.dart' as model;
 import 'package:esport_mgm/screens/main_screen.dart';
+import 'package:esport_mgm/screens/settings_screen.dart';
 import 'package:esport_mgm/services/announcement_service.dart';
 import 'package:esport_mgm/services/chat_service.dart';
 import 'package:esport_mgm/services/clan_service.dart';
@@ -50,7 +52,7 @@ class MyApp extends StatelessWidget {
         Provider<AuthenticationService>(
           create: (_) => AuthenticationService(FirebaseAuth.instance),
         ),
-        StreamProvider(
+        StreamProvider<User?>(
           create: (context) =>
               context.read<AuthenticationService>().authStateChanges,
           initialData: null,
@@ -116,20 +118,45 @@ class AuthenticationWrapper extends StatelessWidget {
     final firebaseUser = context.watch<User?>();
 
     if (firebaseUser != null) {
+      // Now that we have the Firebase user, we can fetch our custom user object
+      // and the player profile at the same time.
       return StreamProvider<model.User?>.value(
         value: context.read<FirestoreService>().getUserStream(firebaseUser.uid),
         initialData: null,
         child: Consumer<model.User?>(
           builder: (context, user, child) {
-            if (user != null) {
-              return MainScreen(user: user);
-            } else {
-              return const LoginScreen();
+            if (user == null) {
+              // This can happen briefly while the user document is loading.
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
+            
+            // Once we have the user, check for a player profile.
+            return FutureBuilder<Player?>(
+              future: context.read<PlayerService>().getPlayerByUserId(user.id),
+              builder: (context, playerSnapshot) {
+                if (playerSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (!playerSnapshot.hasData) {
+                  // If there's no Player data, they need to set up their profile.
+                  // We pass the user object to the settings screen.
+                  return SettingsScreen(user: user);
+                } else {
+                  // If they have a player profile, proceed to the main app.
+                  return MainScreen(user: user);
+                }
+              },
+            );
           },
         ),
       );
     }
+    // If there is no Firebase user, show the login screen.
     return const LoginScreen();
   }
 }

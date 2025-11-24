@@ -16,19 +16,19 @@ class FriendListScreen extends StatefulWidget {
 
 class _FriendListScreenState extends State<FriendListScreen> {
   final _searchController = TextEditingController();
-  List<User> _searchResults = [];
+  List<Player> _searchResults = [];
   bool _isLoading = false;
 
-  void _searchUsers(String query) async {
+  void _searchPlayers(String query) async {
     if (query.isEmpty) {
       setState(() => _searchResults = []);
       return;
     }
     setState(() => _isLoading = true);
-    final firestoreService = context.read<FirestoreService>();
-    final results = await firestoreService.searchUsers(query);
+    final playerService = context.read<PlayerService>();
+    final results = await playerService.searchPlayers(query);
     // Filter out the current user from the search results
-    results.removeWhere((user) => user.id == widget.currentUser.id);
+    results.removeWhere((player) => player.userId == widget.currentUser.id);
     setState(() {
       _searchResults = results;
       _isLoading = false;
@@ -63,17 +63,17 @@ class _FriendListScreenState extends State<FriendListScreen> {
                 if (user.friendIds.isEmpty) {
                   return const Center(child: Text('You have no friends yet.'));
                 }
-                return FutureBuilder<List<User>>(
-                  future: firestoreService.getUsers(user.friendIds),
-                  builder: (context, friendSnapshot) {
-                    if (!friendSnapshot.hasData) {
+                return FutureBuilder<List<Player>>(
+                  future: context.read<PlayerService>().getPlayersByIds(user.friendIds),
+                  builder: (context, playerSnapshot) {
+                    if (!playerSnapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    final friends = friendSnapshot.data!;
+                    final friends = playerSnapshot.data!;
                     return ListView.builder(
                       itemCount: friends.length,
                       itemBuilder: (context, index) {
-                        return UserListTile(user: friends[index], currentUser: widget.currentUser);
+                        return PlayerListTile(player: friends[index], currentUser: widget.currentUser);
                       },
                     );
                   },
@@ -88,7 +88,7 @@ class _FriendListScreenState extends State<FriendListScreen> {
                   TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      labelText: 'Search by email',
+                      labelText: 'Search by GamerTag or ID',
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.clear),
@@ -98,7 +98,7 @@ class _FriendListScreenState extends State<FriendListScreen> {
                         },
                       ),
                     ),
-                    onChanged: _searchUsers,
+                    onChanged: _searchPlayers,
                   ),
                   Expanded(
                     child: _isLoading
@@ -106,7 +106,7 @@ class _FriendListScreenState extends State<FriendListScreen> {
                         : ListView.builder(
                             itemCount: _searchResults.length,
                             itemBuilder: (context, index) {
-                              return UserListTile(user: _searchResults[index], currentUser: widget.currentUser);
+                              return PlayerListTile(player: _searchResults[index], currentUser: widget.currentUser);
                             },
                           ),
                   ),
@@ -120,32 +120,32 @@ class _FriendListScreenState extends State<FriendListScreen> {
   }
 }
 
-class UserListTile extends StatelessWidget {
-  final User user;
+class PlayerListTile extends StatelessWidget {
+  final Player player;
   final User currentUser;
 
-  const UserListTile({super.key, required this.user, required this.currentUser});
+  const PlayerListTile({super.key, required this.player, required this.currentUser});
 
   @override
   Widget build(BuildContext context) {
-    final playerService = context.read<PlayerService>();
+    final firestoreService = context.read<FirestoreService>();
 
-    return FutureBuilder<Player?>(
-      future: playerService.getPlayerByUserId(user.id),
+    return FutureBuilder<User?>(
+      // We fetch the user data to get the photoUrl
+      future: firestoreService.getUser(player.userId).then((doc) => doc.exists ? User.fromMap(doc.id, doc.data()! as Map<String, dynamic>) : null),
       builder: (context, snapshot) {
-        final player = snapshot.data;
-        final title = player?.gamerTag ?? user.email;
-
+        final user = snapshot.data;
         return ListTile(
           leading: CircleAvatar(
-            backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-            child: user.photoUrl == null ? const Icon(Icons.person) : null,
+            backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+            child: user?.photoUrl == null ? const Icon(Icons.person) : null,
           ),
-          title: Text(title),
+          title: Text(player.gamerTag),
+          subtitle: Text(player.realName ?? 'No real name provided'),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => UserProfileScreen(
-                userId: user.id,
+                userId: player.userId,
                 currentUser: currentUser,
               ),
             ),

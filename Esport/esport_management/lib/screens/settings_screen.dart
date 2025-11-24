@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:esport_mgm/models/player.dart';
 import 'package:esport_mgm/models/user.dart';
-import 'package:esport_mgm/screens/user_management_screen.dart';
 import 'package:esport_mgm/services/authentication_service.dart';
 import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:esport_mgm/services/player_service.dart';
@@ -121,9 +120,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<User?>(context);
-    final bool isAdmin = user?.role == UserRole.admin;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile & Settings'),
@@ -188,14 +184,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 24),
                     _buildFavoriteGamesSection(),
                     const Divider(height: 32),
-                    if (isAdmin)
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const UserManagementScreen()));
-                        },
-                        child: const Text('User Management'),
-                      ),
-                    const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _saveProfile,
                       style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),

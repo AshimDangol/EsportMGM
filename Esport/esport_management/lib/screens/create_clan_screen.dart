@@ -15,7 +15,6 @@ class CreateClanScreen extends StatefulWidget {
 
 class _CreateClanScreenState extends State<CreateClanScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _clanService = ClanService();
   final _nameController = TextEditingController();
   final _tagController = TextEditingController();
 
@@ -28,15 +27,12 @@ class _CreateClanScreenState extends State<CreateClanScreen> {
     super.dispose();
   }
 
-  Future<void> _createClan() async {
-    final user = context.read<User?>();
-    if (user?.role != UserRole.clan_leader) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You do not have permission to create clans.')),
-      );
-      return;
-    }
+  String _generateJoinCode() {
+    const uuid = Uuid();
+    return uuid.v4().substring(0, 6).toUpperCase();
+  }
 
+  Future<void> _createClan() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -52,8 +48,9 @@ class _CreateClanScreenState extends State<CreateClanScreen> {
         tag: _tagController.text,
         ownerId: widget.user.id,
         memberIds: [widget.user.id],
+        joinCode: _generateJoinCode(),
       );
-      await _clanService.createClan(clan);
+      await context.read<ClanService>().createClan(clan);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

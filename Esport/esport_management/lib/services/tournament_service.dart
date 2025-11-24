@@ -66,6 +66,19 @@ class TournamentService {
     });
   }
 
+  Future<void> unregisterClanFromTournament(String tournamentId, String clanId) async {
+    await _collection.doc(tournamentId).update({
+      'registeredClanIds': FieldValue.arrayRemove([clanId]),
+      'checkedInClanIds': FieldValue.arrayRemove([clanId]),
+    });
+  }
+
+  Future<void> removePlayerFromTournament(String tournamentId, String playerId) async {
+    await _collection.doc(tournamentId).update({
+      'participatingPlayerIds': FieldValue.arrayRemove([playerId])
+    });
+  }
+
   Future<void> setClanCheckInStatus(String tournamentId, String clanId, bool isCheckedIn) async {
     final update = isCheckedIn
         ? {'checkedInClanIds': FieldValue.arrayUnion([clanId])}

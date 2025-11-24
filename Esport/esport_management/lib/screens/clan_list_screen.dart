@@ -1,89 +1,120 @@
 import 'package:esport_mgm/models/clan.dart';
 import 'package:esport_mgm/models/user.dart';
-import 'package:esport_mgm/screens/create_clan_screen.dart';
-import 'package:esport_mgm/screens/clan_details_screen.dart';
+import 'package:esport_mgm/screens/public_clan_profile_screen.dart';
 import 'package:esport_mgm/services/clan_service.dart';
+import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class ClanListScreen extends StatefulWidget {
   final User user;
   const ClanListScreen({super.key, required this.user});
 
   @override
-  State<ClanListScreen> createState() => _ClanListScreenState();
+  State<ClanListScreen> createState() => _FindClansScreenState();
 }
 
-class _ClanListScreenState extends State<ClanListScreen> {
-  late final ClanService _clanService;
+class _FindClansScreenState extends State<ClanListScreen> {
+  final _searchController = TextEditingController();
   Future<List<Clan>>? _clansFuture;
 
   @override
   void initState() {
     super.initState();
-    _clanService = ClanService();
-    _loadClans();
+    _clansFuture = context.read<ClanService>().getAllClans();
   }
 
-  Future<void> _loadClans() async {
+  void _searchClans(String query) {
     setState(() {
-      _clansFuture = _clanService.getAllClans();
+      if (query.isEmpty) {
+        _clansFuture = context.read<ClanService>().getAllClans();
+      } else {
+        _clansFuture = context.read<ClanService>().searchClans(query);
+      }
     });
-  }
-
-  void _navigateToDetails(Clan clan) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => ClanDetailsScreen(clan: clan, user: widget.user),
-    ));
-  }
-
-  void _navigateToCreate() async {
-    final result = await Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => CreateClanScreen(user: widget.user),
-    ));
-    if (result == true) {
-      _loadClans();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Clans'),
+        title: const Text('Find a Clan'),
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadClans,
-        child: FutureBuilder<List<Clan>>(
-          future: _clansFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
-            }
-            final clans = snapshot.data ?? [];
-            if (clans.isEmpty) {
-              return const Center(child: Text('No clans found.'));
-            }
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search by Clan Name or Join Code',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onChanged: _searchClans,
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Clan>>(
+              future: _clansFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                final clans = snapshot.data ?? [];
+                if (clans.isEmpty) {
+                  return const Center(child: Text('No clans found.'));
+                }
 
-            return ListView.builder(
-              itemCount: clans.length,
-              itemBuilder: (context, index) {
-                final clan = clans[index];
-                return ListTile(
-                  title: Text(clan.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(clan.tag),
-                  onTap: () => _navigateToDetails(clan),
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: clans.length,
+                  itemBuilder: (context, index) {
+                    return ClanCard(clan: clans[index], currentUser: widget.user);
+                  },
                 );
               },
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToCreate,
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class ClanCard extends StatelessWidget {
+  final Clan clan;
+  final User currentUser;
+
+  const ClanCard({super.key, required this.clan, required this.currentUser});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          radius: 25,
+          backgroundImage: (clan.logoUrl != null)
+              ? NetworkImage(clan.logoUrl!)
+              : null,
+          child: (clan.logoUrl == null)
+              ? const Icon(Icons.shield, size: 30)
+              : null,
+        ),
+        title: Text(clan.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        subtitle: Text('${clan.memberIds.length} Members'),
+        trailing: const Icon(Icons.arrow_forward_ios),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => PublicClanProfileScreen(clan: clan, currentUser: currentUser),
+        )),
       ),
     );
   }

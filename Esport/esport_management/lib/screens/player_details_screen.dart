@@ -25,7 +25,7 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen> {
     _playerStatsFuture = context.read<PlayerStatsService>().getPlayerStats(widget.player.id);
   }
 
-  bool get _isAdmin => widget.user.role == UserRole.admin;
+  bool get _isThisUser => widget.player.userId == widget.user.id;
 
   Color _getStatusColor(PlayerStatus status) {
     switch (status) {
@@ -44,7 +44,7 @@ class _PlayerDetailsScreenState extends State<PlayerDetailsScreen> {
       appBar: AppBar(
         title: Text(widget.player.gamerTag),
         actions: [
-          if (_isAdmin)
+          if (_isThisUser)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {

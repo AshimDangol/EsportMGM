@@ -9,7 +9,6 @@ class FirestoreService {
   Future<void> createUser(String uid, String email) async {
     return _firestore.collection('users').doc(uid).set({
       'email': email,
-      'role': UserRole.admin.name, // Default role
       'theme': 'system',
     });
   }
@@ -55,9 +54,15 @@ class FirestoreService {
     });
   }
 
-  Future<void> updateUserRole(String uid, UserRole role) async {
-    return _firestore.collection('users').doc(uid).update({
-      'role': role.name,
+  Future<void> addBookmark(String userId, String clanId) async {
+    await _firestore.collection('users').doc(userId).update({
+      'bookmarkedClanIds': FieldValue.arrayUnion([clanId]),
+    });
+  }
+
+  Future<void> removeBookmark(String userId, String clanId) async {
+    await _firestore.collection('users').doc(userId).update({
+      'bookmarkedClanIds': FieldValue.arrayRemove([clanId]),
     });
   }
 }

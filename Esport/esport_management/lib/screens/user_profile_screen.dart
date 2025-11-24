@@ -6,6 +6,7 @@ import 'package:esport_mgm/services/friend_service.dart';
 import 'package:esport_mgm/services/player_service.dart';
 import 'package:esport_mgm/services/firestore_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:esport_mgm/screens/chat_screen.dart';
 
@@ -56,6 +57,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     const SizedBox(height: 16),
                     Text(player?.gamerTag ?? user.email, style: Theme.of(context).textTheme.headlineSmall),
                     if (player?.realName != null) Text(player!.realName!, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('ID: ${user.id}', style: Theme.of(context).textTheme.bodySmall),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 14),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: user.id));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('User ID Copied to Clipboard')),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 24),
                     _buildActionButtons(user, player, friendService, clanService),
                     const Divider(height: 32),
@@ -88,23 +105,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ));
             },
           )
-        else
+        else if (widget.currentUser.id != user.id)
           ElevatedButton.icon(
             icon: const Icon(Icons.person_add_alt_1_outlined),
             label: const Text('Add Friend'),
             onPressed: () async {
               await friendService.addFriend(widget.currentUser.id, user.id);
-              // No need to call setState, StreamBuilder will handle the update
             },
           ),
 
-        // You can add more complex clan invite logic here
         if (player != null && player.clanId == null)
           ElevatedButton.icon(
             icon: const Icon(Icons.group_add_outlined),
             label: const Text('Invite to Clan'),
             onPressed: () {
-              // This is a placeholder for a more complete clan invite system.
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Invitation sent to ${player.gamerTag}')),
               );
